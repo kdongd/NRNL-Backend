@@ -28,6 +28,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(WorkoutConditionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleWorkoutConditionNotFound(WorkoutConditionNotFoundException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(WorkoutConditionConflictException.class)
+    public ResponseEntity<ErrorResponse> handleWorkoutConditionConflict(WorkoutConditionConflictException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.CONFLICT.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         ErrorResponse response = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "요청 파라미터 형식이 올바르지 않습니다: " + e.getName(), List.of());
