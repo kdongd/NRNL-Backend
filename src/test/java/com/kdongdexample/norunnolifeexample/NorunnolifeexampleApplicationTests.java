@@ -3,7 +3,7 @@ package com.kdongdexample.norunnolifeexample;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -13,7 +13,7 @@ class NorunnolifeexampleApplicationTests {
 
 	@Container
 	@ServiceConnection
-	static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
+	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
 	@Test
 	void contextLoads() {

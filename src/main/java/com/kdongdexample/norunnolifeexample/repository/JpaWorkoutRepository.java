@@ -21,8 +21,8 @@ public interface JpaWorkoutRepository extends JpaRepository<Workout, Long>, JpaS
             "w.type, count(w), coalesce(sum(w.durationMinutes), 0L)) " +
             "from Workout w " +
             "where w.owner.id = :ownerId " +
-            "and (:from is null or w.workoutDateTime >= :from) " +
-            "and (:to is null or w.workoutDateTime <= :to) " +
+            "and (cast(:from as LocalDateTime) is null or w.workoutDateTime >= :from) " +
+            "and (cast(:to as LocalDateTime) is null or w.workoutDateTime <= :to) " +
             "group by w.type")
     List<WorkoutStatByType> statsByType(@Param("ownerId") Long ownerId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
@@ -32,8 +32,8 @@ public interface JpaWorkoutRepository extends JpaRepository<Workout, Long>, JpaS
             "count(w)) " +
             "from Workout w " +
             "where w.owner.id = :ownerId " +
-            "and (:from is null or w.workoutDateTime >= :from) " +
-            "and (:to is null or w.workoutDateTime <= :to) " +
+            "and (cast(:from as LocalDateTime) is null or w.workoutDateTime >= :from) " +
+            "and (cast(:to as LocalDateTime) is null or w.workoutDateTime <= :to) " +
             "group by extract(year from w.workoutDateTime), extract(month from w.workoutDateTime) " +
             "order by extract(year from w.workoutDateTime), extract(month from w.workoutDateTime)")
     List<WorkoutMonthlyStat> statsByMonth(@Param("ownerId") Long ownerId, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);

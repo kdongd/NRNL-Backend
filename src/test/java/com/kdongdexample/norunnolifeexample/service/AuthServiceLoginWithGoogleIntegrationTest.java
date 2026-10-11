@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -25,17 +25,17 @@ import static org.mockito.BDDMockito.given;
 // Mock 기반의 단위 테스트는 Spring AOP 프록시를 거치지 않아, loginWithGoogle() 실행 시
 // 클래스 레벨의 @Transactional(readOnly = true) 설정으로 인해 신규 유저 저장(INSERT)이
 // Read-only 커넥션에서 거부되던 생산 환경 버그를 포착할 수 없었습니다.
-// 이를 방지하기 위해 실제 Spring 컨테이너와 Testcontainers 기반의 MySQL 환경을 구성하여
+// 이를 방지하기 위해 실제 Spring 컨테이너와 Testcontainers 기반의 PostgreSQL 환경을 구성하여
 // 트랜잭션 프록시가 개입한 상태에서도 신규 유저가 정상적으로 DB에 영속화되는지 검증합니다.
-// H2 데이터베이스는 Read-only 트랜잭션의 DML 제약 동작이 MySQL과 다를 수 있으므로,
-// Connector/J의 Read-only 세션 정책을 엄격히 적용하는 실제 MySQL을 활용하여 회귀 테스트를 수행합니다.
+// PostgreSQL JDBC 드라이버도 read-only 트랜잭션에서는 SET TRANSACTION READ ONLY를 적용해
+// INSERT를 거부하므로, 운영 DB와 동일한 환경에서 회귀 테스트를 수행합니다.
 @Testcontainers
 @SpringBootTest
 class AuthServiceLoginWithGoogleIntegrationTest {
 
     @Container
     @ServiceConnection
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
     @Autowired
     private AuthService authService;
