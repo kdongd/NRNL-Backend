@@ -24,6 +24,8 @@
 | 소셜 로그인 | Google Identity Services + google-api-client 2.9.0 (ID 토큰 서버 검증) |
 | CI | GitHub Actions               |
 
+
+
 ---
  
 ## ⚙️ 실행 방법
