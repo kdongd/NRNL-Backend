@@ -35,3 +35,13 @@ cors:
 
 nickname:
   banned-words: admin,운영자,norunnolife
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  model: gpt-6-luna
+  base-url: https://api.openai.com/v1
+  timeout-seconds: 30
+  # 모델 내부 추론량.
+  reasoning-effort: low
+  # 한 번 호출에서 쓸 수 있는 최대 출력 토큰
+  max-output-tokens: 4000
