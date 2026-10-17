@@ -10,6 +10,8 @@ import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundE
 import com.kdongdexample.norunnolifeexample.exception.UserProfileAlreadyExistsException;
 import com.kdongdexample.norunnolifeexample.repository.UserProfileRepository;
 import com.kdongdexample.norunnolifeexample.repository.UserRepository;
+import org.hibernate.exception.ConstraintViolationException;
+import org.hibernate.exception.DataException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Set;
 
@@ -100,10 +103,30 @@ class UserProfileServiceTest {
         User user = createUserWithId(1L);
         given(userProfileRepository.existsByUserId(1L)).willReturn(false);
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        willThrow(new DataIntegrityViolationException("duplicate"))
+        // 실제 DB(Postgres 23505)처럼 Hibernate ConstraintViolationException을 원인으로 담아 던진다
+        ConstraintViolationException uniqueViolation = new ConstraintViolationException(
+                "duplicate", new SQLException("duplicate key", "23505"), "uk_user_profiles_user_id");
+        willThrow(new DataIntegrityViolationException("duplicate", uniqueViolation))
                 .given(userProfileRepository).saveAndFlush(any(UserProfile.class));
 
         assertThatThrownBy(() -> service().createProfile(1L, sampleRequest()))
                 .isInstanceOf(UserProfileAlreadyExistsException.class);
+    }
+
+    @Test
+    @DisplayName("길이 초과처럼 제약조건 위반이 아닌 DB 에러는 '이미 존재'로 바꾸지 않고 그대로 던진다")
+    void createProfile_dataTooLong_rethrowsOriginalException() {
+        User user = createUserWithId(1L);
+        given(userProfileRepository.existsByUserId(1L)).willReturn(false);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        // 실제 DB(Postgres 22001 value too long)처럼 Hibernate DataException을 원인으로 담아 던진다
+        DataException tooLong = new DataException(
+                "value too long", new SQLException("value too long for type character varying(255)", "22001"));
+        willThrow(new DataIntegrityViolationException("value too long", tooLong))
+                .given(userProfileRepository).saveAndFlush(any(UserProfile.class));
+
+        assertThatThrownBy(() -> service().createProfile(1L, sampleRequest()))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(UserProfileAlreadyExistsException.class);
     }
 }
