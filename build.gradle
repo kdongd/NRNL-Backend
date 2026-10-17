@@ -50,4 +50,5 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	jvmArgs '-Duser.timezone=Asia/Seoul'
 }
