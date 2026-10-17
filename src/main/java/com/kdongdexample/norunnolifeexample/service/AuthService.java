@@ -85,7 +85,10 @@ public class AuthService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new EmailAlreadyExistsException(request.email());
+            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+                throw new EmailAlreadyExistsException(request.email());
+            }
+            throw e;   // 길이 초과 같은 건 그대로 올려보낸다
         }
     }
 

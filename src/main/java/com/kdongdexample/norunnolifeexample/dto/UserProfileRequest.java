@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.Set;
 
@@ -19,5 +20,6 @@ public record UserProfileRequest(
         @NotNull @DecimalMin("30.0") @DecimalMax("200.0") Double weightKg,
         @NotNull ExperienceLevel experienceLevel,
         @NotEmpty Set<WorkoutType> primaryExercises,
+        @Size(max = 255, message = "목표는 255자까지 입력할 수 있습니다")
         String goal
 ) {}

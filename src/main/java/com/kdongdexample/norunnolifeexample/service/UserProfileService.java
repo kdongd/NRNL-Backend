@@ -49,7 +49,10 @@ public class UserProfileService {
         try {
             return userProfileRepository.saveAndFlush(profile);
         } catch (DataIntegrityViolationException e) {
-            throw new UserProfileAlreadyExistsException(userId);
+            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+                throw new UserProfileAlreadyExistsException(userId);
+            }
+            throw e;   // 길이 초과 같은 건 그대로 올려보낸다
         }
     }
 }

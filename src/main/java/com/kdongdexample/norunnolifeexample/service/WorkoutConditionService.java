@@ -47,7 +47,10 @@ public class WorkoutConditionService {
         try {
             return conditionRepository.saveAndFlush(condition);
         } catch (DataIntegrityViolationException e) {
-            throw new WorkoutConditionConflictException(workoutId);
+            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
+                throw new WorkoutConditionConflictException(workoutId);
+            }
+            throw e;   // 길이 초과 같은 건 그대로 올려보낸다
         }
     }
 
