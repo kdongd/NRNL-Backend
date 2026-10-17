@@ -75,11 +75,11 @@ class CoachingServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("최근 입력일 3개 모두 통증이 있으면 REST로 판정된다")
+    @DisplayName("최근 입력일 3개 모두 통증 강도 2 이상이면 REST로 판정된다")
     void painPersistent_rest() {
         recordCondition(owner, 0, 5, 7, List.of(new PainRequest(BodyPart.KNEE, 2)));
-        recordCondition(owner, 2, 5, 7, List.of(new PainRequest(BodyPart.KNEE, 1)));
-        recordCondition(owner, 4, 5, 7, List.of(new PainRequest(BodyPart.ANKLE, 1)));
+        recordCondition(owner, 2, 5, 7, List.of(new PainRequest(BodyPart.KNEE, 2)));
+        recordCondition(owner, 4, 5, 7, List.of(new PainRequest(BodyPart.ANKLE, 2)));
         flushAndClear();
 
         CoachingAssessment result = coachingService.assess(owner.getId());

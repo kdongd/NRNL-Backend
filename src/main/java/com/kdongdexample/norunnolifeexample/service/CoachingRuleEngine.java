@@ -27,6 +27,10 @@ public class CoachingRuleEngine {
     static final int PAIN_RECENT_DAYS = 3;       // 통증 강도 룰은 마지막 입력일이 오늘 포함 3일 이내일 때만 적용
 
     static final int PAIN_STREAK = 3;
+    // 통증 지속 룰에서 "통증 있음"으로 셀 최소 강도.
+    // 강도 1은 "약간 불편"이라 이것만 세 번 적었다고 휴식을 권하면 과하고,
+    // 솔직하게 적을수록 손해를 보니 사용자가 통증을 안 적게 된다.
+    static final int PERSISTENT_PAIN_MIN_INTENSITY = 2;
 
     static final int RPE_LOOKBACK = 5;
     static final int HIGH_RPE = 9;
@@ -63,9 +67,10 @@ public class CoachingRuleEngine {
         }
 
         List<DailyCondition> painWindow = days.subList(0, PAIN_STREAK);
-        if (painWindow.stream().allMatch(DailyCondition::hasPain)) {
+        if (painWindow.stream().allMatch(d -> d.maxPain() >= PERSISTENT_PAIN_MIN_INTENSITY)) {
             reasons.add(new CoachingReason(CoachingRule.PAIN_PERSISTENT,
-                    "최근 입력일 " + PAIN_STREAK + "번 모두 통증 기록 (" + datesOf(painWindow) + ")"));
+                    "최근 입력일 " + PAIN_STREAK + "번 모두 통증 강도 " + PERSISTENT_PAIN_MIN_INTENSITY + " 이상 기록 ("
+                            + datesOf(painWindow) + ")"));
         }
 
         List<DailyCondition> rpeWindow = days.subList(0, Math.min(RPE_LOOKBACK, days.size()));

@@ -90,15 +90,39 @@ class CoachingRuleEngineTest {
     }
 
     @Test
-    @DisplayName("최근 입력일 3개 모두 통증이 있으면 REST (달력상 연속이 아니어도 된다)")
+    @DisplayName("최근 입력일 3개 모두 통증 강도 2 이상이면 REST (달력상 연속이 아니어도 된다)")
     void painPersistent_rest() {
         CoachingAssessment result = engine.evaluate(List.of(
                 day(0, 5, 7, Map.of(BodyPart.KNEE, 2)),
-                day(2, 5, 7, Map.of(BodyPart.KNEE, 1)),
-                day(5, 5, 7, Map.of(BodyPart.HIP, 1))), today);
+                day(2, 5, 7, Map.of(BodyPart.KNEE, 3)),
+                day(5, 5, 7, Map.of(BodyPart.HIP, 2))), today);
 
         assertThat(result.level()).isEqualTo(CoachingLevel.REST);
         assertThat(rulesOf(result)).containsExactly(CoachingRule.PAIN_PERSISTENT);
+    }
+
+    @Test
+    @DisplayName("통증 강도 1(약간 불편)만 세 번 기록하면 휴식을 권하지 않는다")
+    void painPersistent_onlyIntensityOne_normal() {
+        CoachingAssessment result = engine.evaluate(List.of(
+                day(0, 5, 7, Map.of(BodyPart.KNEE, 1)),
+                day(2, 5, 7, Map.of(BodyPart.KNEE, 1)),
+                day(5, 5, 7, Map.of(BodyPart.HIP, 1))), today);
+
+        assertThat(result.level()).isEqualTo(CoachingLevel.NORMAL);
+        assertThat(result.reasons()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("최근 입력일 3개 중 하루라도 통증 강도가 1뿐이면 통증 지속이 아니다")
+    void painPersistent_oneDayIntensityOne_normal() {
+        CoachingAssessment result = engine.evaluate(List.of(
+                day(0, 5, 7, Map.of(BodyPart.KNEE, 2)),
+                day(2, 5, 7, Map.of(BodyPart.KNEE, 1)),
+                day(5, 5, 7, Map.of(BodyPart.HIP, 2))), today);
+
+        assertThat(result.level()).isEqualTo(CoachingLevel.NORMAL);
+        assertThat(result.reasons()).isEmpty();
     }
 
     @Test
