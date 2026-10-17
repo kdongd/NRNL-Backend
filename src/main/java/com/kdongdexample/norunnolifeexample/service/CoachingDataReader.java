@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -37,28 +38,35 @@ public class CoachingDataReader {
     private final UserProfileRepository userProfileRepository;
     private final WorkoutQueryRepository workoutQueryRepository;
     private final CoachingRuleEngine ruleEngine;
+    // 현재 시각은 Clock으로만 읽는다. 테스트에서 고정 시각으로 바꿔 끼울 수 있습니다.
+    private final Clock clock;
 
     public CoachingDataReader(WorkoutConditionRepository conditionRepository,
                               UserRepository userRepository,
                               UserProfileRepository userProfileRepository,
                               WorkoutQueryRepository workoutQueryRepository,
-                              CoachingRuleEngine ruleEngine) {
+                              CoachingRuleEngine ruleEngine,
+                              Clock clock) {
         this.conditionRepository = conditionRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.workoutQueryRepository = workoutQueryRepository;
         this.ruleEngine = ruleEngine;
+        this.clock = clock;
     }
 
     public CoachingAssessment assess(Long userId) {
         validateUserExists(userId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         return ruleEngine.evaluate(DailyCondition.aggregate(findConditions(userId, today)), today);
     }
 
     public CoachingContext readContext(Long userId) {
         validateUserExists(userId);
-        LocalDate today = LocalDate.now();
+        // 현재 시각을 한 번만 읽어서 today와 조회 상한에 같이 쓴다.
+        // 따로 읽으면 자정 직전에 그 사이를 넘어가 둘이 다른 날이 될 수 있다.
+        LocalDateTime now = LocalDateTime.now(clock);
+        LocalDate today = now.toLocalDate();
 
         List<WorkoutCondition> conditions = findConditions(userId, today);
         List<DailyCondition> dailyConditions = DailyCondition.aggregate(conditions);
@@ -71,7 +79,7 @@ public class CoachingDataReader {
         List<WorkoutSnapshot> recentWorkouts = workoutQueryRepository.search(
                         userId, null,
                         ruleEngine.windowStart(today).atStartOfDay(),
-                        LocalDateTime.now(),
+                        now,
                         PageRequest.of(0, MAX_RECENT_WORKOUTS, Sort.by(Sort.Direction.DESC, "workoutDateTime")))
                 .getContent().stream()
                 .map(WorkoutSnapshot::from)
