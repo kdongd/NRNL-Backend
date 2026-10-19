@@ -2,7 +2,9 @@
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 
-COPY gradlew settings.gradle build.gradle gradle.properties ./
+# gradle.properties는 복사하지 않는다.
+# .gitignore 대상이라 레포에 없고, 로컬 파일에는 개발자 맥의 JDK 경로(org.gradle.java.home)가 들어 있어 컨테이너에서 쓸 수 없다.
+COPY gradlew settings.gradle build.gradle ./
 COPY gradle ./gradle
 COPY src ./src
 
