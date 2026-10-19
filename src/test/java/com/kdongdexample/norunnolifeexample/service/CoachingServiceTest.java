@@ -16,10 +16,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class CoachingServiceTest {
@@ -32,6 +35,9 @@ class CoachingServiceTest {
 
     @Mock
     private LlmCoachingClient llmClient;
+
+    @Mock
+    private CoachingCacheStore cacheStore;
 
     @InjectMocks
     private CoachingService coachingService;
@@ -86,5 +92,59 @@ class CoachingServiceTest {
         assertThat(result.status()).isEqualTo(CoachingStatus.UNAVAILABLE);
         assertThat(result.assessment().level()).isEqualTo(CoachingLevel.STOP);
         assertThat(result.advice()).isNull();
+    }
+
+    @Test
+    @DisplayName("마지막 컨디션 id가 같은 캐시가 있으면 LLM을 호출하지 않고 저장된 코칭을 돌려준다")
+    void cacheHit_doesNotCallLlm() {
+        CoachingContext context = context(CoachingLevel.REST);
+        CoachingAdvice cached = new CoachingAdvice("오늘은 쉬어요", "최근 통증이 이어졌어요", List.of("스트레칭 10분"), "");
+        given(dataReader.readContext(1L)).willReturn(context);
+        given(cacheStore.findLastConditionId(1L)).willReturn(Optional.of(10L));
+        given(cacheStore.find(1L, 10L)).willReturn(Optional.of(cached));
+
+        CoachingResult result = coachingService.coach(1L);
+
+        assertThat(result.status()).isEqualTo(CoachingStatus.GENERATED);
+        assertThat(result.advice()).isEqualTo(cached);
+        then(promptBuilder).shouldHaveNoInteractions();
+        then(llmClient).shouldHaveNoInteractions();
+        then(cacheStore).should(never()).save(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("캐시가 없거나 마지막 컨디션 id가 다르면 LLM을 호출하고 결과를 캐시에 저장한다")
+    void cacheMiss_callsLlmAndSaves() {
+        CoachingContext context = context(CoachingLevel.REST);
+        LlmPrompt prompt = new LlmPrompt("system", "user");
+        CoachingAdvice advice = new CoachingAdvice("오늘은 쉬어요", "최근 통증이 이어졌어요", List.of("스트레칭 10분"), "");
+        given(dataReader.readContext(1L)).willReturn(context);
+        given(cacheStore.findLastConditionId(1L)).willReturn(Optional.of(10L));
+        given(cacheStore.find(1L, 10L)).willReturn(Optional.empty());
+        given(promptBuilder.build(context)).willReturn(prompt);
+        given(llmClient.generate(prompt)).willReturn(advice);
+
+        CoachingResult result = coachingService.coach(1L);
+
+        assertThat(result.status()).isEqualTo(CoachingStatus.GENERATED);
+        assertThat(result.advice()).isEqualTo(advice);
+        then(cacheStore).should().save(1L, 10L, advice);
+    }
+
+    @Test
+    @DisplayName("LLM 호출이 실패하면 캐시에 저장하지 않는다")
+    void llmFailure_doesNotSaveCache() {
+        CoachingContext context = context(CoachingLevel.REST);
+        LlmPrompt prompt = new LlmPrompt("system", "user");
+        given(dataReader.readContext(1L)).willReturn(context);
+        given(cacheStore.findLastConditionId(1L)).willReturn(Optional.of(10L));
+        given(cacheStore.find(1L, 10L)).willReturn(Optional.empty());
+        given(promptBuilder.build(context)).willReturn(prompt);
+        given(llmClient.generate(prompt)).willThrow(new LlmUnavailableException("timeout"));
+
+        CoachingResult result = coachingService.coach(1L);
+
+        assertThat(result.status()).isEqualTo(CoachingStatus.UNAVAILABLE);
+        then(cacheStore).should(never()).save(any(), any(), any());
     }
 }

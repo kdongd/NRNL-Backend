@@ -25,4 +25,8 @@ public interface WorkoutConditionRepository extends JpaRepository<WorkoutConditi
     List<WorkoutCondition> findAllByOwnerAndWorkoutDateRange(@Param("userId") Long userId,
                                                              @Param("from") LocalDateTime from,
                                                              @Param("to") LocalDateTime to);
+
+    // 코칭 캐시 키용: 회원의 가장 최근에 저장된 컨디션 id (컨디션이 없으면 empty)
+    @Query("select max(c.id) from WorkoutCondition c where c.workout.owner.id = :userId")
+    Optional<Long> findLastConditionIdByOwner(@Param("userId") Long userId);
 }
