@@ -27,13 +27,14 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+
 @ExtendWith(MockitoExtension.class)
 class CoachingDataReaderTest {
 
     private static final Long USER_ID = 1L;
 
     // UTC 2026-10-12 22:23 = KST 2026-10-13 07:23
-    private static final Instant SERVER_INSTANT = Instant.parse("2026-10-12T22:23:00Z");
+    private static final Instant INSTANT = Instant.parse("2026-10-12T22:23:00Z");
 
     @Mock
     private WorkoutConditionRepository conditionRepository;
@@ -48,14 +49,15 @@ class CoachingDataReaderTest {
     private WorkoutQueryRepository workoutQueryRepository;
 
     @Test
-    @DisplayName("서버 시각이 UTC 밤 10시여도 서비스 타임존(Asia/Seoul) 기준 오늘 기록으로 판정해 통증 5면 STOP")
-    void assess_serverUtcNight_usesServiceZoneToday() {
-        Clock clock = Clock.fixed(SERVER_INSTANT, ZoneId.of("Asia/Seoul"));
+    @DisplayName("주어진 Clock의 존 기준으로 오늘을 계산해 조회 범위를 정하고, 그날 통증 5 기록이면 STOP")
+    void assess_usesGivenClockZoneForToday() {
+        // 같은 순간이라도 존이 Asia/Seoul이면 오늘 = 10/13 (UTC로 보면 10/12)
+        Clock clock = Clock.fixed(INSTANT, ZoneId.of("Asia/Seoul"));
         CoachingDataReader reader = new CoachingDataReader(
                 conditionRepository, userRepository, userProfileRepository, workoutQueryRepository,
                 new CoachingRuleEngine(), clock);
 
-        // 사용자가 한국 시각 오늘(10/13) 오전 7시에 운동하고 통증 5를 기록
+        // 사용자가 한국 시각 10/13 오전 7시에 운동하고 통증 5를 기록
         User owner = User.create("clock@test.com", "encoded-password");
         RunningWorkout workout = RunningWorkout.create(
                 owner, 30, null, LocalDateTime.of(2026, 10, 13, 7, 0), 5.0, "한강", 300);

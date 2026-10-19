@@ -50,5 +50,7 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 운영(Dockerfile ENTRYPOINT)과 같은 서비스 타임존(Asia/Seoul)으로 테스트 JVM을 맞춘다.
+	// 이게 없으면 로컬(맥: Asia/Seoul)과 CI(GitHub Actions: UTC)에서 테스트 기준 시각이 달라진다.
 	jvmArgs '-Duser.timezone=Asia/Seoul'
 }
