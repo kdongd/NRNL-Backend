@@ -1,6 +1,7 @@
 package com.kdongdexample.norunnolifeexample.service;
 
 import com.kdongdexample.norunnolifeexample.domain.BodyPart;
+import com.kdongdexample.norunnolifeexample.domain.CoachingAdvice;
 import com.kdongdexample.norunnolifeexample.domain.CoachingAssessment;
 import com.kdongdexample.norunnolifeexample.domain.CoachingLevel;
 import com.kdongdexample.norunnolifeexample.domain.CoachingReason;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -28,6 +30,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @Testcontainers
 @SpringBootTest
@@ -53,6 +59,10 @@ class CoachingServiceIntegrationTest {
     @Autowired
     private EntityManager em;
 
+    // 실제 OpenAI를 부르지 않고, 몇 번 호출됐는지만 센다.
+    @MockitoBean
+    private LlmCoachingClient llmClient;
+
     private User owner;
     private User otherUser;
 
@@ -62,11 +72,12 @@ class CoachingServiceIntegrationTest {
         otherUser = userRepository.save(User.create("coaching-other@test.com", "encoded-password"));
     }
 
-    // daysAgo일 전 오전 9시에 운동 기록 + 컨디션 저장
-    private void recordCondition(User user, int daysAgo, int rpe, int body, List<PainRequest> pains) {
+    // daysAgo일 전 오전 9시에 운동 기록 + 컨디션 저장. 수정(PUT) 테스트용으로 운동 id를 돌려준다.
+    private Long recordCondition(User user, int daysAgo, int rpe, int body, List<PainRequest> pains) {
         Workout workout = jpaWorkoutRepository.save(RunningWorkout.create(
                 user, 30, null, LocalDate.now().minusDays(daysAgo).atTime(9, 0), 5.0, "한강", 300));
         conditionService.upsert(workout.getId(), new WorkoutConditionRequest(rpe, body, pains, null), user.getId());
+        return workout.getId();
     }
 
     private void flushAndClear() {
@@ -115,5 +126,32 @@ class CoachingServiceIntegrationTest {
 
         assertThat(result.level()).isEqualTo(CoachingLevel.INSUFFICIENT_DATA);
         assertThat(result.reasons()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("컨디션을 PUT으로 수정하면 코칭 캐시가 무효화되어 LLM을 다시 호출한다")
+    void updateCondition_invalidatesCoachingCache() {
+        given(llmClient.generate(any())).willReturn(
+                new CoachingAdvice("좋은 페이스예요", "컨디션이 안정적이에요", List.of("지금처럼 유지"), ""));
+
+        recordCondition(owner, 4, 5, 7, List.of());
+        recordCondition(owner, 2, 5, 7, List.of());
+        Long todayWorkoutId = recordCondition(owner, 0, 5, 7, List.of(new PainRequest(BodyPart.KNEE, 1)));
+        flushAndClear();
+
+        // 1) 첫 코칭 → LLM 1회 호출, 결과가 캐시에 저장된다
+        coachingService.coach(owner.getId());
+        flushAndClear();
+
+        // 2) 같은 컨디션을 PUT으로 수정 (통증 1 → 5). 컨디션 id는 그대로다.
+        conditionService.upsert(todayWorkoutId,
+                new WorkoutConditionRequest(5, 7, List.of(new PainRequest(BodyPart.KNEE, 5)), null),
+                owner.getId());
+        flushAndClear();
+
+        // 3) 다시 코칭 → 입력이 바뀌었으므로 캐시를 쓰지 않고 LLM을 다시 불러야 한다
+        coachingService.coach(owner.getId());
+
+        verify(llmClient, times(2)).generate(any());
     }
 }

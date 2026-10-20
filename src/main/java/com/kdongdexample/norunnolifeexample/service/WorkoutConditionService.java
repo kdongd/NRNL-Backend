@@ -6,6 +6,7 @@ import com.kdongdexample.norunnolifeexample.domain.WorkoutCondition;
 import com.kdongdexample.norunnolifeexample.dto.WorkoutConditionRequest;
 import com.kdongdexample.norunnolifeexample.exception.WorkoutConditionConflictException;
 import com.kdongdexample.norunnolifeexample.exception.WorkoutConditionNotFoundException;
+import com.kdongdexample.norunnolifeexample.repository.CoachingCacheRepository;
 import com.kdongdexample.norunnolifeexample.repository.WorkoutConditionRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -20,15 +21,23 @@ public class WorkoutConditionService {
 
     private final WorkoutService workoutService;
     private final WorkoutConditionRepository conditionRepository;
+    private final CoachingCacheRepository coachingCacheRepository;
 
-    public WorkoutConditionService(WorkoutService workoutService, WorkoutConditionRepository conditionRepository) {
+    public WorkoutConditionService(WorkoutService workoutService,
+                                   WorkoutConditionRepository conditionRepository,
+                                   CoachingCacheRepository coachingCacheRepository) {
         this.workoutService = workoutService;
         this.conditionRepository = conditionRepository;
+        this.coachingCacheRepository = coachingCacheRepository;
     }
 
     // 없으면 생성, 있으면 전체 덮어쓰기
     @Transactional
     public WorkoutCondition upsert(Long workoutId, WorkoutConditionRequest request, Long userId) {
+        // 컨디션이 바뀌면 코칭 입력이 바뀌므로 저장된 코칭을 지운다.
+        // 수정(PUT)은 컨디션 id가 그대로라 캐시 키만으로는 변경을 알 수 없다.
+        coachingCacheRepository.deleteByUserId(userId);
+
         // 운동 기록 존재 여부 + 본인 소유 검증 (남의 기록이면 WorkoutNotFoundException)
         Workout workout = workoutService.findById(workoutId, userId);
         Map<BodyPart, Integer> pains = request.toPainMap();

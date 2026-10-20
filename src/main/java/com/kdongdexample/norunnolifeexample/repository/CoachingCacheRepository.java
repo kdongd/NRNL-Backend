@@ -13,7 +13,7 @@ public interface CoachingCacheRepository extends JpaRepository<CoachingCache, Lo
     Optional<CoachingCache> findByUserId(Long userId);
 
     // 컨디션이 바뀌면 그 회원의 코칭 캐시를 지운다.
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("delete from CoachingCache c where c.userId = :userId")
     int deleteByUserId(@Param("userId") Long userId);
 }
