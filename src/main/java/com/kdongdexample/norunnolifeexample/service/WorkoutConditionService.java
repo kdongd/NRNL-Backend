@@ -34,8 +34,7 @@ public class WorkoutConditionService {
     // 없으면 생성, 있으면 전체 덮어쓰기
     @Transactional
     public WorkoutCondition upsert(Long workoutId, WorkoutConditionRequest request, Long userId) {
-        // 컨디션이 바뀌면 코칭 입력이 바뀌므로 저장된 코칭을 지운다.
-        // 수정(PUT)은 컨디션 id가 그대로라 캐시 키만으로는 변경을 알 수 없다.
+        // 컨디션이 바뀌면 코칭 입력이 바뀌므로 같은 트랜잭션에서 캐시를 지운다. 기능이 늘어나면 이벤트로 분리를 고려."
         coachingCacheRepository.deleteByUserId(userId);
 
         // 운동 기록 존재 여부 + 본인 소유 검증 (남의 기록이면 WorkoutNotFoundException)
