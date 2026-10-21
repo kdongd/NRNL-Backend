@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.dto;
 
 import com.kdongdexample.norunnolifeexample.domain.BodyPart;
@@ -14,12 +15,18 @@ import java.util.List;
 import java.util.Map;
 
 public record WorkoutConditionRequest(
-        @Schema(description = "운동 강도 체감(RPE). 1 = 매우 쉬움, 10 = 최대로 힘듦", example = "7")
-        @NotNull @Min(1) @Max(10)
+        @Schema(
+                description = "운동 체감 강도(RPE). 1 = 매우 쉬움, 5 = 매우 힘듦",
+                example = "4"
+        )
+        @NotNull @Min(1) @Max(5)
         Integer rpe,
 
-        @Schema(description = "운동 직후 몸 상태. 1 = 매우 나쁨, 10 = 매우 좋음", example = "6")
-        @NotNull @Min(1) @Max(10)
+        @Schema(
+                description = "운동 직후 몸 상태. 1 = 매우 나쁨, 5 = 매우 좋음",
+                example = "3"
+        )
+        @NotNull @Min(1) @Max(5)
         Integer bodyCondition,
 
         @Schema(description = "통증 부위별 강도 목록. 통증이 없으면 비우거나 생략")
@@ -34,7 +41,10 @@ public record WorkoutConditionRequest(
             @NotNull
             BodyPart bodyPart,
 
-            @Schema(description = "통증 강도. 1 = 약간 불편, 5 = 극심한 통증", example = "3")
+            @Schema(
+                    description = "통증 강도. 1 = 약간 불편, 5 = 극심한 통증",
+                    example = "3"
+            )
             @NotNull @Min(1) @Max(5)
             Integer intensity
     ) {}
@@ -44,18 +54,24 @@ public record WorkoutConditionRequest(
         if (pains == null) {
             return true;
         }
+
         List<BodyPart> parts = pains.stream()
                 .filter(p -> p != null && p.bodyPart() != null)
                 .map(PainRequest::bodyPart)
                 .toList();
+
         return parts.size() == parts.stream().distinct().count();
     }
 
     public Map<BodyPart, Integer> toPainMap() {
         Map<BodyPart, Integer> map = new EnumMap<>(BodyPart.class);
+
         if (pains != null) {
-            pains.forEach(p -> map.put(p.bodyPart(), p.intensity()));
+            pains.forEach(p ->
+                    map.put(p.bodyPart(), p.intensity())
+            );
         }
+
         return map;
     }
 }
