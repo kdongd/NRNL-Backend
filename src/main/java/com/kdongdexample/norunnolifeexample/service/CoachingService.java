@@ -13,9 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-
-// coach()는 외부 LLM 호출(최대 수십 초) 동안 DB 커넥션을 잡고 있지 않도록,
-// 데이터 조회는 CoachingDataReader의 읽기 전용 트랜잭션에서 끝내고 LLM 호출은 트랜잭션 밖에서 합니다.
 @Slf4j
 @Service
 public class CoachingService {
@@ -25,59 +22,133 @@ public class CoachingService {
     private final LlmCoachingClient llmClient;
     private final CoachingCacheStore cacheStore;
 
-    public CoachingService(CoachingDataReader dataReader,
-                           CoachingPromptBuilder promptBuilder,
-                           LlmCoachingClient llmClient,
-                           CoachingCacheStore cacheStore) {
+    public CoachingService(
+            CoachingDataReader dataReader,
+            CoachingPromptBuilder promptBuilder,
+            LlmCoachingClient llmClient,
+            CoachingCacheStore cacheStore
+    ) {
         this.dataReader = dataReader;
         this.promptBuilder = promptBuilder;
         this.llmClient = llmClient;
         this.cacheStore = cacheStore;
     }
 
+    // 룰 기반 운동 상태 판정
     public CoachingAssessment assess(Long userId) {
         return dataReader.assess(userId);
     }
 
+    // AI 코칭 생성 또는 기존 캐시 재사용
     public CoachingResult coach(Long userId) {
+
+        // DB 조회 트랜잭션은 별도 빈에서 종료
         CoachingContext context = dataReader.readContext(userId);
         CoachingAssessment assessment = context.assessment();
 
-        // 판단할 데이터가 없으면 비용을 들여 LLM을 부를 이유가 없다.
+        // 운동 기록이 부족하면 LLM을 호출하지 않는다.
         if (assessment.level() == CoachingLevel.INSUFFICIENT_DATA) {
-            return new CoachingResult(assessment, null, CoachingStatus.SKIPPED_INSUFFICIENT_DATA);
+            return new CoachingResult(
+                    assessment,
+                    null,
+                    CoachingStatus.SKIPPED_INSUFFICIENT_DATA
+            );
         }
 
-        // 새 컨디션을 저장하기 전까지는 코칭 입력이 같으므로, 마지막 컨디션 id가 같으면 저장된 코칭을 돌려준다.
-        Long lastConditionId = cacheStore.findLastConditionId(userId).orElse(null);
+        // 마지막 컨디션 ID 조회
+        Long lastConditionId = cacheStore.findLastConditionId(userId)
+                .orElse(null);
+
+        // 유효한 캐시가 있다면 AI를 호출하지 않고 반환
         if (lastConditionId != null) {
-            Optional<CoachingAdvice> cached = cacheStore.find(userId, lastConditionId);
+            Optional<CoachingAdvice> cached =
+                    cacheStore.find(userId, lastConditionId);
+
             if (cached.isPresent()) {
-                return new CoachingResult(assessment, cached.get(), CoachingStatus.GENERATED);
+                return new CoachingResult(
+                        assessment,
+                        cached.get(),
+                        CoachingStatus.GENERATED
+                );
             }
         }
 
+        // 캐시가 없을 때만 LLM 호출
         CoachingAdvice advice;
+
         try {
-            advice = llmClient.generate(promptBuilder.build(context));
+            advice = llmClient.generate(
+                    promptBuilder.build(context)
+            );
         } catch (LlmUnavailableException e) {
-            // LLM이 실패해도 안전 판정(룰 결과)은 항상 사용자에게 전달. 실패 결과는 캐시하지 않는다.
-            log.warn("AI 코칭 생성 실패, 룰 판정만 반환합니다: {}", e.getMessage());
-            return new CoachingResult(assessment, null, CoachingStatus.UNAVAILABLE);
+
+            log.warn(
+                    "AI 코칭 생성 실패, 룰 판정만 반환합니다: {}",
+                    e.getMessage()
+            );
+
+            return new CoachingResult(
+                    assessment,
+                    null,
+                    CoachingStatus.UNAVAILABLE
+            );
         }
 
+        // 생성한 코칭을 DB에 저장
         if (lastConditionId != null) {
             saveCache(userId, lastConditionId, advice);
         }
-        return new CoachingResult(assessment, advice, CoachingStatus.GENERATED);
+
+        return new CoachingResult(
+                assessment,
+                advice,
+                CoachingStatus.GENERATED
+        );
     }
 
-    // 캐시 저장에 실패해도 이미 생성한 코칭은 사용자에게 그대로 돌려준다.
-    private void saveCache(Long userId, Long lastConditionId, CoachingAdvice advice) {
+    // 추가: 기존 AI 코칭 조회
+    // LLM 호출 없이 DB에 저장된 결과만 가져온다.
+    public Optional<CoachingResult> getLatestCoaching(Long userId) {
+
+        // 현재 운동 상태 판정
+        CoachingAssessment assessment = dataReader.assess(userId);
+
+        // 판정에 필요한 데이터가 부족하면 기존 코칭을 표시하지 않는다.
+        if (assessment.level() == CoachingLevel.INSUFFICIENT_DATA) {
+            return Optional.empty();
+        }
+
+        // 현재 사용자의 마지막 컨디션 ID 조회
+        Optional<Long> lastConditionId =
+                cacheStore.findLastConditionId(userId);
+
+        if (lastConditionId.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // 마지막 컨디션 ID가 일치하는 코칭 캐시 조회
+        return cacheStore.find(userId, lastConditionId.get())
+                .map(advice -> new CoachingResult(
+                        assessment,
+                        advice,
+                        CoachingStatus.GENERATED
+                ));
+    }
+
+    // 캐시 저장 실패가 코칭 응답 실패로 이어지지 않도록 처리
+    private void saveCache(
+            Long userId,
+            Long lastConditionId,
+            CoachingAdvice advice
+    ) {
         try {
             cacheStore.save(userId, lastConditionId, advice);
         } catch (DataAccessException e) {
-            log.warn("코칭 캐시 저장 실패 (userId={}): {}", userId, e.getClass().getSimpleName());
+            log.warn(
+                    "코칭 캐시 저장 실패 (userId={}): {}",
+                    userId,
+                    e.getClass().getSimpleName()
+            );
         }
     }
 }

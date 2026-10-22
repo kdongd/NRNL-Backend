@@ -22,21 +22,49 @@ public class CoachingController {
         this.coachingService = coachingService;
     }
 
-    @Operation(summary = "룰 기반 컨디션 판정",
-            description = "최근 14일 운동 후 컨디션 기록으로 위험 단계(중단/휴식/강도 감소/정상)를 판정한다. LLM을 호출하지 않는다")
+    @Operation(
+            summary = "룰 기반 컨디션 판정",
+            description = "최근 14일 운동 후 컨디션 기록으로 위험 단계를 판정한다. LLM을 호출하지 않는다"
+    )
     @ApiResponse(responseCode = "200", description = "판정 성공")
     @GetMapping("/coaching/assessment")
-    public ResponseEntity<CoachingAssessmentResponse> getAssessment(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(CoachingAssessmentResponse.from(coachingService.assess(userId)));
+    public ResponseEntity<CoachingAssessmentResponse> getAssessment(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(
+                CoachingAssessmentResponse.from(coachingService.assess(userId))
+        );
     }
 
-    // 호출할 때마다 LLM 비용이 발생하는 생성 작업이라 GET이 아닌 POST ("코칭 받기" 버튼)
-    @Operation(summary = "AI 코칭 받기",
-            description = "룰 판정 결과와 최근 기록을 바탕으로 AI 코칭을 생성한다. " +
-                    "데이터가 부족하면 LLM을 호출하지 않고, LLM 호출에 실패하면 룰 판정만 반환한다")
-    @ApiResponse(responseCode = "200", description = "코칭 결과 (status로 AI 생성 여부 구분)")
+    // AI 코칭 생성 또는 기존 캐시 재사용
+    @Operation(
+            summary = "AI 코칭 받기",
+            description = "기존 캐시가 유효하면 재사용하고, 없으면 AI 코칭을 생성한다"
+    )
+    @ApiResponse(responseCode = "200", description = "코칭 결과 반환")
     @PostMapping("/coaching")
-    public ResponseEntity<CoachingResponse> coach(@AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(CoachingResponse.from(coachingService.coach(userId)));
+    public ResponseEntity<CoachingResponse> coach(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return ResponseEntity.ok(
+                CoachingResponse.from(coachingService.coach(userId))
+        );
+    }
+
+    // 새로고침 또는 페이지 재진입 시 기존 코칭 조회
+    // 이 API에서는 LLM을 절대 호출하지 않는다.
+    @Operation(
+            summary = "최근 AI 코칭 조회",
+            description = "DB에 저장된 유효한 AI 코칭을 조회한다. 새 코칭을 생성하지 않는다"
+    )
+    @ApiResponse(responseCode = "200", description = "저장된 코칭 조회 성공")
+    @ApiResponse(responseCode = "204", description = "저장된 유효한 코칭 없음")
+    @GetMapping("/coaching/latest")
+    public ResponseEntity<CoachingResponse> getLatestCoaching(
+            @AuthenticationPrincipal Long userId
+    ) {
+        return coachingService.getLatestCoaching(userId)
+                .map(result -> ResponseEntity.ok(CoachingResponse.from(result)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }

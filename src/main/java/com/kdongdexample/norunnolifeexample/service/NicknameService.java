@@ -58,7 +58,17 @@ public class NicknameService {
     }
 
 
-        private boolean isValidFormat(String nickname) {
+    @Transactional(readOnly = true)
+    public String getNickname(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticatedUserNotFoundException(userId));
+
+        return user.getNickname();
+    }
+
+
+
+    private boolean isValidFormat(String nickname) {
             if (nickname == null) return false;
             int length = nickname.length();
             return length >= MIN_LENGTH && length <= MAX_LENGTH;

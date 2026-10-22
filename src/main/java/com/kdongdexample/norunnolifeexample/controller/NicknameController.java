@@ -1,18 +1,12 @@
 
 package com.kdongdexample.norunnolifeexample.controller;
 
-import com.kdongdexample.norunnolifeexample.domain.User;
 import com.kdongdexample.norunnolifeexample.dto.NicknameAvailabilityResponse;
 import com.kdongdexample.norunnolifeexample.dto.NicknameUpdateRequest;
-import com.kdongdexample.norunnolifeexample.dto.UserMeResponse;
-import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
-import com.kdongdexample.norunnolifeexample.repository.UserRepository;
 import com.kdongdexample.norunnolifeexample.service.NicknameService;
-
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,28 +14,19 @@ import org.springframework.web.bind.annotation.*;
 public class NicknameController {
 
     private final NicknameService nicknameService;
-    private final UserRepository userRepository;
 
-    public NicknameController(
-            NicknameService nicknameService,
-            UserRepository userRepository
-    ) {
+    public NicknameController(NicknameService nicknameService) {
         this.nicknameService = nicknameService;
-        this.userRepository = userRepository;
     }
 
-    // 로그인한 사용자 정보 조회
-    @GetMapping("/me")
-    @Transactional(readOnly = true)
-    public ResponseEntity<UserMeResponse> getMyInfo(
+    // 현재 로그인한 사용자의 닉네임 조회
+    @GetMapping("/me/nickname")
+    public ResponseEntity<NicknameResponse> getMyNickname(
             @AuthenticationPrincipal Long userId
     ) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new AuthenticatedUserNotFoundException(userId)
-                );
+        String nickname = nicknameService.getNickname(userId);
 
-        return ResponseEntity.ok(UserMeResponse.from(user));
+        return ResponseEntity.ok(new NicknameResponse(nickname));
     }
 
     // 닉네임 중복 확인
@@ -54,7 +39,7 @@ public class NicknameController {
         );
     }
 
-    // 닉네임 변경
+    // 닉네임 등록 및 변경
     @PutMapping("/me/nickname")
     public ResponseEntity<Void> changeNickname(
             @Valid @RequestBody NicknameUpdateRequest request,
@@ -63,5 +48,8 @@ public class NicknameController {
         nicknameService.changeNickname(userId, request.nickname());
 
         return ResponseEntity.ok().build();
+    }
+
+    public record NicknameResponse(String nickname) {
     }
 }
