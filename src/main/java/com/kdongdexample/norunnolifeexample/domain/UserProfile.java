@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.domain;
 
 import jakarta.persistence.*;
@@ -23,9 +24,9 @@ public class UserProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 인증 도메인(User)과 프로필 데이터를 분리 - User는 로그인/토큰에만 관여하고
-    // 이 테이블은 AI 코칭에 쓰이는 신체/목표 정보만 담당합니다. 가입 직후엔 이 row가 없는 상태이고
-    // 프로필 작성 API를 호출해야 생성됩니다.
+    // 인증 정보(User)와 운동 프로필(UserProfile)을 분리한다.
+    // 일반 회원가입 시에는 두 데이터를 함께 생성한다.
+    // 기존 OAuth 회원 등은 프로필이 없는 상태일 수 있다.
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
@@ -40,13 +41,16 @@ public class UserProfile {
     @Enumerated(EnumType.STRING)
     private ExperienceLevel experienceLevel;
 
-    // 러닝/복싱 둘 다 할 수 있어서 다중 선택으로 설계 했습니다. 실제 운동 기록(Workout)의 종목과는 별개로
-    // 코칭을 어떤 종목을 중심으로 받고 싶은지를 나타내는 프로필 값입니다.
+    // AI 코칭에서 참고할 주요 운동 종목
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "user_profile_primary_exercises", joinColumns = @JoinColumn(name = "user_profile_id"))
+    @CollectionTable(
+            name = "user_profile_primary_exercises",
+            joinColumns = @JoinColumn(name = "user_profile_id")
+    )
     @Enumerated(EnumType.STRING)
     @Column(name = "exercise_type")
-    private Set<WorkoutType> primaryExercises = EnumSet.noneOf(WorkoutType.class);
+    private Set<WorkoutType> primaryExercises =
+            EnumSet.noneOf(WorkoutType.class);
 
     private String goal;
 
@@ -57,22 +61,78 @@ public class UserProfile {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
-    private UserProfile(User user, Gender gender, Integer age, Double heightCm, Double weightKg,
-                        ExperienceLevel experienceLevel, Set<WorkoutType> primaryExercises, String goal) {
+    private UserProfile(
+            User user,
+            Gender gender,
+            Integer age,
+            Double heightCm,
+            Double weightKg,
+            ExperienceLevel experienceLevel,
+            Set<WorkoutType> primaryExercises,
+            String goal
+    ) {
         this.user = user;
         this.gender = gender;
         this.age = age;
         this.heightCm = heightCm;
         this.weightKg = weightKg;
         this.experienceLevel = experienceLevel;
-        this.primaryExercises = (primaryExercises == null || primaryExercises.isEmpty())
-                ? EnumSet.noneOf(WorkoutType.class)
-                : EnumSet.copyOf(primaryExercises);
+        this.primaryExercises = copyExercises(primaryExercises);
         this.goal = goal;
     }
 
-    public static UserProfile create(User user, Gender gender, Integer age, Double heightCm, Double weightKg,
-                                     ExperienceLevel experienceLevel, Set<WorkoutType> primaryExercises, String goal) {
-        return new UserProfile(user, gender, age, heightCm, weightKg, experienceLevel, primaryExercises, goal);
+    public static UserProfile create(
+            User user,
+            Gender gender,
+            Integer age,
+            Double heightCm,
+            Double weightKg,
+            ExperienceLevel experienceLevel,
+            Set<WorkoutType> primaryExercises,
+            String goal
+    ) {
+        return new UserProfile(
+                user,
+                gender,
+                age,
+                heightCm,
+                weightKg,
+                experienceLevel,
+                primaryExercises,
+                goal
+        );
+    }
+
+    // [추가] 기존 운동 프로필 수정
+    public void update(
+            Gender gender,
+            Integer age,
+            Double heightCm,
+            Double weightKg,
+            ExperienceLevel experienceLevel,
+            Set<WorkoutType> primaryExercises,
+            String goal
+    ) {
+        this.gender = gender;
+        this.age = age;
+        this.heightCm = heightCm;
+        this.weightKg = weightKg;
+        this.experienceLevel = experienceLevel;
+
+        // JPA가 관리하는 컬렉션을 교체하지 않고 내부 요소만 변경한다.
+        this.primaryExercises.clear();
+        this.primaryExercises.addAll(copyExercises(primaryExercises));
+
+        this.goal = goal;
+    }
+
+    private static Set<WorkoutType> copyExercises(
+            Set<WorkoutType> exercises
+    ) {
+        if (exercises == null || exercises.isEmpty()) {
+            return EnumSet.noneOf(WorkoutType.class);
+        }
+
+        return EnumSet.copyOf(exercises);
     }
 }

@@ -111,4 +111,10 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(HttpStatus.CONFLICT.value(), e.getMessage(), List.of());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
+
+    @ExceptionHandler(UserProfileNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserProfileNotFound(UserProfileNotFoundException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 }

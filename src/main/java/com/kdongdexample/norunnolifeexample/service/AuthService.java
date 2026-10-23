@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
@@ -55,6 +56,10 @@ public class AuthService {
     private final long refreshTokenExpirationMs;
     private final int maxRefreshTokensPerUser;
 
+    // [추가] 회원가입에서 닉네임 검증 및 운동 프로필 생성을 재사용
+    private final NicknameService nicknameService;
+    private final UserProfileService userProfileService;
+
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider jwtTokenProvider,
@@ -63,7 +68,10 @@ public class AuthService {
                        RefreshTokenRepository refreshTokenRepository,
                        RefreshTokenProvider refreshTokenProvider,
                        @Value("${jwt.refresh-token-expiration-ms}") long refreshTokenExpirationMs,
-                       @Value("${auth.max-refresh-tokens-per-user}") int maxRefreshTokensPerUser) {
+                       @Value("${auth.max-refresh-tokens-per-user}") int maxRefreshTokensPerUser,
+                       NicknameService nicknameService,
+                       UserProfileService userProfileService) {
+
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
@@ -73,61 +81,96 @@ public class AuthService {
         this.refreshTokenProvider = refreshTokenProvider;
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
         this.maxRefreshTokensPerUser = maxRefreshTokensPerUser;
+
+        // [추가]
+        this.nicknameService = nicknameService;
+        this.userProfileService = userProfileService;
     }
 
+    // [수정] 회원, 닉네임, 운동 프로필을 하나의 트랜잭션으로 저장
     @Transactional
     public void signup(SignupRequest request) {
+
+        // 1. 이메일 중복 검사
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyExistsException(request.email());
         }
-        User user = User.create(request.email(), passwordEncoder.encode(request.password()));
 
-        try {
-            userRepository.saveAndFlush(user);
-        } catch (DataIntegrityViolationException e) {
-            if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException) {
-                throw new EmailAlreadyExistsException(request.email());
-            }
-            throw e;   // 길이 초과 같은 건 그대로 올려보낸다
-        }
+        // 2. 닉네임 형식, 금칙어, 중복 검사
+        nicknameService.validateNickname(request.nickname());
+
+        // 3. 사용자 생성
+        User user = User.create(
+                request.email(),
+                passwordEncoder.encode(request.password())
+        );
+
+        // 4. 닉네임 설정
+        user.updateNickname(request.nickname());
+
+        // 5. 사용자 저장
+        // DB UNIQUE 제약조건이 동시 가입 요청의 중복을 최종적으로 방지한다.
+        // saveAndFlush()로 INSERT 시점에 제약조건 위반을 확인한다.
+        // 이메일뿐 아니라 닉네임도 UNIQUE이므로 모든 제약조건 위반을
+        // EmailAlreadyExistsException으로 변환하면 안 된다.
+        userRepository.saveAndFlush(user);
+
+        // 6. 운동 프로필 생성
+        // UserProfileService는 별도 빈이므로 @Transactional 프록시를 거친다.
+        // 기본 전파(REQUIRED)에 따라 현재 signup() 트랜잭션에 참여한다.
+        userProfileService.createProfile(user, request.profile());
+
+        // 모든 저장이 성공하면 COMMIT
+        // 중간에 RuntimeException이 발생하면 전체 ROLLBACK
     }
 
     @Transactional
     public AuthTokens login(LoginRequest request) {
         Optional<User> maybeUser = userRepository.findByEmail(request.email());
 
-        // 계정이 없거나(Optional.empty) OAuth 전용 계정(비밀번호 없음)이어도 더미 해시로
-        // matches()를 동일하게 호출해서, "계정이 있고 비밀번호만 틀린 경우"와 걸리는 시간을
-        // 맞춘다. 그렇지 않으면 메시지는 통일해놔도 응답 시간만으로 "이 이메일이 LOCAL
-        // 계정으로 존재하는지"가 새어나간다(타이밍 사이드채널).
+        // 계정이 없거나(Optional.empty()) OAuth 전용 계정(비밀번호 없음)이어도
+        // 더미 해시로 matches()를 동일하게 호출해 타이밍 차이를 줄인다.
         String hashToCheck = maybeUser
                 .filter(User::hasPassword)
                 .map(User::getPassword)
                 .orElse(DUMMY_PASSWORD_HASH);
 
-        boolean passwordMatches = passwordEncoder.matches(request.password(), hashToCheck);
+        boolean passwordMatches = passwordEncoder.matches(
+                request.password(),
+                hashToCheck
+        );
 
-        if (maybeUser.isEmpty() || !maybeUser.get().hasPassword() || !passwordMatches) {
+        if (maybeUser.isEmpty()
+                || !maybeUser.get().hasPassword()
+                || !passwordMatches) {
             throw new InvalidCredentialsException();
         }
 
         User user = maybeUser.get();
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail());
-        String refreshToken = issueRefreshToken(user.getId(), UUID.randomUUID().toString());
+
+        String accessToken = jwtTokenProvider.createAccessToken(
+                user.getId(),
+                user.getEmail()
+        );
+
+        String refreshToken = issueRefreshToken(
+                user.getId(),
+                UUID.randomUUID().toString()
+        );
 
         return new AuthTokens(accessToken, refreshToken);
     }
 
-    // 클래스 레벨 @Transactional(readOnly = true)을 이 메서드가 그대로 물려받으면, 아래
-    // transactionTemplate.execute()가 기본 전파(REQUIRED)일 때 그 readOnly 트랜잭션에 합류해버려서
-    // 신규 유저 저장(INSERT)이 read-only 커넥션 위에서 거부된다 (Post /auth/google 자체가 죽는 버그였음).
-    // NOT_SUPPORTED로 이 메서드 진입 시점엔 트랜잭션을 아예 열지 않게 만든다 — 어차피
-    // googleIdTokenValidator.verify()는 구글 공개키 서버 조회 등 외부 네트워크 호출이 걸릴 수 있어서
-    // 이 구간을 트랜잭션(=DB 커넥션 점유)에 묶어둘 이유가 없다. DB 조회/저장이 필요한 구간만
-    // 아래 transactionTemplate.execute()가 그 자리에서 새 트랜잭션을 연다.
+    // 클래스 레벨 @Transactional(readOnly = true)을 이 메서드가 그대로 물려받으면,
+    // transactionTemplate.execute()가 기본 전파(REQUIRED)로
+    // readOnly 트랜잭션에 합류할 수 있다.
+    // Google 토큰 검증은 외부 네트워크 호출이 발생할 수 있으므로
+    // DB 트랜잭션 밖에서 처리하고, DB 작업만 별도 트랜잭션으로 묶는다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AuthTokens loginWithGoogle(GoogleLoginRequest request) {
-        GoogleIdToken.Payload payload = googleIdTokenValidator.verify(request.idToken());
+        GoogleIdToken.Payload payload = googleIdTokenValidator.verify(
+                request.idToken()
+        );
 
         if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
             throw new InvalidGoogleTokenException();
@@ -138,10 +181,23 @@ public class AuthService {
 
         return transactionTemplate.execute(status -> {
             User user = userRepository.findByEmail(email)
-                    .orElseGet(() -> userRepository.save(User.createOAuth(email, AuthProvider.GOOGLE, googleUserId)));
+                    .orElseGet(() -> userRepository.save(
+                            User.createOAuth(
+                                    email,
+                                    AuthProvider.GOOGLE,
+                                    googleUserId
+                            )
+                    ));
 
-            String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail());
-            String refreshToken = issueRefreshToken(user.getId(), UUID.randomUUID().toString());
+            String accessToken = jwtTokenProvider.createAccessToken(
+                    user.getId(),
+                    user.getEmail()
+            );
+
+            String refreshToken = issueRefreshToken(
+                    user.getId(),
+                    UUID.randomUUID().toString()
+            );
 
             return new AuthTokens(accessToken, refreshToken);
         });
@@ -151,19 +207,23 @@ public class AuthService {
     public AuthTokens refresh(String rawRefreshToken) {
         String tokenHash = refreshTokenProvider.hash(rawRefreshToken);
 
-        // 동시 요청으로 인해 두 요청이 모두 revoked=false 상태를 읽어 재사용 탐지 무력화를 방지합니다.
-        // findByTokenHashForUpdate(PESSIMISTIC_WRITE)를 사용해 동일 토큰의 동시 접근시 나중 요청을 대기시키고
-        // 첫번째 트랜잭션이 완료된 후 최신 revoked 상태를 조회하도록 보장합니다.
-        RefreshToken current = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
+        // 동일 토큰에 대한 동시 요청을 직렬화해 재사용 탐지를 보호한다.
+        RefreshToken current = refreshTokenRepository
+                .findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(InvalidRefreshTokenException::new);
 
         if (current.isRevoked()) {
-            // 폐기된 토큰이 다시 들어오는 경우 = 탈취되어 재사용된 것으로 간주합니다.
-            // 같은 tokenFamily(같은 세션/기기에서 나온 토큰들) 전체를 즉시 폐기해서
-            // 피해 범위를 그 세션 하나로 한정합니다. 다른 기기(다른 family)에는 영향이 가지 않습니다.
-            log.warn("리프레시 토큰 재사용 탐지 - 해당 세션(tokenFamily={}, userId={}) 전체를 폐기합니다.",
-                    current.getTokenFamily(), current.getUserId());
-            refreshTokenRepository.revokeAllByTokenFamily(current.getTokenFamily());
+            // 폐기된 토큰이 다시 사용되면 동일 세션의 토큰을 모두 폐기한다.
+            log.warn(
+                    "리프레시 토큰 재사용 탐지 - 해당 세션(tokenFamily={}, userId={}) 전체를 폐기합니다.",
+                    current.getTokenFamily(),
+                    current.getUserId()
+            );
+
+            refreshTokenRepository.revokeAllByTokenFamily(
+                    current.getTokenFamily()
+            );
+
             throw new InvalidRefreshTokenException();
         }
 
@@ -171,14 +231,25 @@ public class AuthService {
             throw new InvalidRefreshTokenException();
         }
 
-        // 지금 쓰인 토큰은 즉시 폐기하고 같은 family로 새 토큰을 발급합니다.
+        // 기존 리프레시 토큰 폐기
         current.revoke();
 
         User user = userRepository.findById(current.getUserId())
-                .orElseThrow(() -> new AuthenticatedUserNotFoundException(current.getUserId()));
+                .orElseThrow(() ->
+                        new AuthenticatedUserNotFoundException(
+                                current.getUserId()
+                        )
+                );
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail());
-        String newRefreshToken = issueRefreshToken(user.getId(), current.getTokenFamily());
+        String accessToken = jwtTokenProvider.createAccessToken(
+                user.getId(),
+                user.getEmail()
+        );
+
+        String newRefreshToken = issueRefreshToken(
+                user.getId(),
+                current.getTokenFamily()
+        );
 
         return new AuthTokens(accessToken, newRefreshToken);
     }
@@ -186,9 +257,11 @@ public class AuthService {
     @Transactional
     public void logout(String rawRefreshToken) {
         String tokenHash = refreshTokenProvider.hash(rawRefreshToken);
+
         refreshTokenRepository.findByTokenHash(tokenHash)
                 .ifPresent(RefreshToken::revoke);
-        // 토큰이 없거나 이미 폐기된 상태여도 에러를 내지 않습니다.
+
+        // 토큰이 없거나 이미 폐기된 상태여도 에러를 내지 않는다.
     }
 
     private String issueRefreshToken(Long userId, String tokenFamily) {
@@ -196,28 +269,41 @@ public class AuthService {
 
         String rawToken = refreshTokenProvider.generate();
         String tokenHash = refreshTokenProvider.hash(rawToken);
-        LocalDateTime expiresAt = LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpirationMs));
 
-        RefreshToken refreshToken = RefreshToken.issue(userId, tokenHash, tokenFamily, expiresAt);
+        LocalDateTime expiresAt = LocalDateTime.now()
+                .plus(Duration.ofMillis(refreshTokenExpirationMs));
+
+        RefreshToken refreshToken = RefreshToken.issue(
+                userId,
+                tokenHash,
+                tokenFamily,
+                expiresAt
+        );
+
         refreshTokenRepository.save(refreshToken);
 
         return rawToken;
     }
 
     private void enforceDeviceLimit(Long userId) {
-        // revokedFalse만 보고 만료 여부를 안 보면 만료된 지 오래된 토큰까지 활성 슬롯을
-        // 차지해서 진짜 활성 세션이 부당하게 먼저 밀려날 수 있어서, 아직 만료 안 된
-        // 토큰만 세도록 expiresAt 조건이 들어간 쿼리로 교체했습니다.
+        // 만료되지 않았고 revoked=false인 토큰만 활성 토큰으로 계산한다.
         List<RefreshToken> activeTokens = refreshTokenRepository
-                .findByUserIdAndRevokedFalseAndExpiresAtAfterOrderByIssuedAtAsc(userId, LocalDateTime.now());
+                .findByUserIdAndRevokedFalseAndExpiresAtAfterOrderByIssuedAtAsc(
+                        userId,
+                        LocalDateTime.now()
+                );
+
         if (activeTokens.size() < maxRefreshTokensPerUser) {
             return;
         }
+
         int excess = activeTokens.size() - maxRefreshTokensPerUser + 1;
+
         for (int i = 0; i < excess; i++) {
             activeTokens.get(i).revoke();
         }
-        // activeTokens는 이 트랜잭션 안에서 조회된 영속 상태 엔티티라서 revoke() 호출만으로도
-        // 트랜잭션 시 변경된 부분이 자동으로 반영됩니다.
+
+        // 조회된 RefreshToken은 영속 상태이므로
+        // revoke() 변경 사항은 트랜잭션 종료 시 반영된다.
     }
 }
