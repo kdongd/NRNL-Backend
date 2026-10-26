@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.service;
 
 import com.kdongdexample.norunnolifeexample.domain.User;
@@ -56,6 +57,11 @@ class NicknameServiceTest {
         Long userId = 1L;
         String nickname = "runner";
 
+        User user = mock(User.class);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
         when(nicknameValidator.isBanned(nickname))
                 .thenReturn(false);
 
@@ -73,6 +79,11 @@ class NicknameServiceTest {
     void changeNickname_duplicate_differentCase() {
         Long userId = 1L;
         String nickname = "RUNNER";
+
+        User user = mock(User.class);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
 
         when(nicknameValidator.isBanned(nickname))
                 .thenReturn(false);

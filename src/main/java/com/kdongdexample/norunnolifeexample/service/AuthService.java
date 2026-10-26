@@ -14,6 +14,7 @@ import com.kdongdexample.norunnolifeexample.exception.EmailAlreadyExistsExceptio
 import com.kdongdexample.norunnolifeexample.exception.InvalidCredentialsException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidGoogleTokenException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidRefreshTokenException;
+import com.kdongdexample.norunnolifeexample.exception.NicknameAlreadyExistsException;
 import com.kdongdexample.norunnolifeexample.repository.RefreshTokenRepository;
 import com.kdongdexample.norunnolifeexample.repository.UserRepository;
 import com.kdongdexample.norunnolifeexample.security.GoogleIdTokenValidator;
@@ -113,7 +114,29 @@ public class AuthService {
         // saveAndFlush()로 INSERT 시점에 제약조건 위반을 확인한다.
         // 이메일뿐 아니라 닉네임도 UNIQUE이므로 모든 제약조건 위반을
         // EmailAlreadyExistsException으로 변환하면 안 된다.
-        userRepository.saveAndFlush(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            Throwable cause = e;
+
+            while (cause != null) {
+                if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintException) {
+                    String constraintName = constraintException.getConstraintName();
+
+                    if ("uk_users_email".equalsIgnoreCase(constraintName)) {
+                        throw new EmailAlreadyExistsException(request.email());
+                    }
+
+                    if ("uk_users_nickname_normalized".equalsIgnoreCase(constraintName)) {
+                        throw new NicknameAlreadyExistsException("이미 사용 중인 닉네임입니다");
+                    }
+                }
+
+                cause = cause.getCause();
+            }
+
+            throw e;
+        }
 
         // 6. 운동 프로필 생성
         // UserProfileService는 별도 빈이므로 @Transactional 프록시를 거친다.
