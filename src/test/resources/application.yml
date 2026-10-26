@@ -1,18 +1,13 @@
 spring:
   application:
     name: norunnolifeexample
-  datasource:
-    url: jdbc:mysql://localhost:3306/norunnolife
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: test
-    password: test
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
-  h2:
-    console:
-      enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
   data:
     web:
       pageable:
@@ -34,3 +29,12 @@ cors:
 
 nickname:
   banned-words: admin,운영자,norunnolife
+
+# 테스트에서는 실제 OpenAI를 호출하지 않는다 (클라이언트는 Mock 또는 MockRestServiceServer로 대체)
+openai:
+  api-key: test-dummy-key
+  model: gpt-6-luna
+  base-url: https://api.openai.com/v1
+  timeout-seconds: 5
+  reasoning-effort: low
+  max-output-tokens: 4000

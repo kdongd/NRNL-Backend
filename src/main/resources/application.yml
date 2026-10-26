@@ -2,14 +2,18 @@ spring:
   application:
     name: norunnolifeexample
   datasource:
-    url: jdbc:mysql://localhost:3306/norunnolife
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/norunnolife}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
   data:
     web:
       pageable:
@@ -31,3 +35,17 @@ cors:
 
 nickname:
   banned-words: admin,운영자,norunnolife
+
+openai:
+  # 로컬 개발은 키 없이도 앱이 뜨도록 기본값을 빈 문자열로 둔다 (코칭 요청 시 UNAVAILABLE).
+  # 운영(prod 프로필)에서는 application-prod.yml이 기본값 없이 덮어써서, 키가 없으면 앱이 뜨지 않는다.
+  api-key: ${OPENAI_API_KEY:}
+  model: gpt-6-luna
+  base-url: https://api.openai.com/v1
+  # 재시도 1회가 있어서 사용자 최대 대기 = 타임아웃 × 2 + 재시도 대기 1초 ≈ 21초.
+  # 사용자가 실제로 기다려줄 수 있는 시간에 맞춘 10초
+  timeout-seconds: 10
+  # 모델 내부 추론량.
+  reasoning-effort: low
+  # 한 번 호출에서 쓸 수 있는 최대 출력 토큰
+  max-output-tokens: 4000

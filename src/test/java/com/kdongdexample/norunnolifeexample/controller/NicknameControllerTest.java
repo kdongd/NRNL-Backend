@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,6 +7,7 @@ import com.kdongdexample.norunnolifeexample.dto.NicknameAvailabilityResponse;
 import com.kdongdexample.norunnolifeexample.dto.NicknameUpdateRequest;
 import com.kdongdexample.norunnolifeexample.exception.InvalidNicknameException;
 import com.kdongdexample.norunnolifeexample.exception.NicknameAlreadyExistsException;
+import com.kdongdexample.norunnolifeexample.repository.UserRepository;
 import com.kdongdexample.norunnolifeexample.security.CustomAuthenticationEntryPoint;
 import com.kdongdexample.norunnolifeexample.security.JwtTokenProvider;
 import com.kdongdexample.norunnolifeexample.service.NicknameService;
@@ -34,7 +36,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(NicknameController.class)
-@Import({SecurityConfig.class, JwtTokenProvider.class, CustomAuthenticationEntryPoint.class})
+@Import({
+        SecurityConfig.class,
+        JwtTokenProvider.class,
+        CustomAuthenticationEntryPoint.class
+})
 class NicknameControllerTest {
 
     @Autowired
@@ -45,6 +51,10 @@ class NicknameControllerTest {
 
     @MockitoBean
     private NicknameService nicknameService;
+
+    // NicknameController가 의존하는 Repository를 테스트용 Mock으로 등록
+    @MockitoBean
+    private UserRepository userRepository;
 
     @Test
     @DisplayName("닉네임 사용 가능 여부 조회는 미인증 상태에서도 200을 반환한다")

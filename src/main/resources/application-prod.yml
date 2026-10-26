@@ -1,0 +1,4 @@
+# 운영 프로필 (Dockerfile ENTRYPOINT의 -Dspring.profiles.active=prod)
+# AI 코칭은 이 서비스의 핵심 기능. 운영에서 키가 없으면 조용히 반쪽으로 뜨지 않고 앱이 뜨지 않게 헙나더,
+openai:
+  api-key: ${OPENAI_API_KEY}

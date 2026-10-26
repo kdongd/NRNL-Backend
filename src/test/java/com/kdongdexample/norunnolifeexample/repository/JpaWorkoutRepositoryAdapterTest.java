@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -31,7 +31,7 @@ class JpaWorkoutRepositoryAdapterTest {
 
     @Container
     @ServiceConnection
-    static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17");
 
     @Autowired
     private JpaWorkoutRepositoryAdapter adapter;
@@ -51,7 +51,7 @@ class JpaWorkoutRepositoryAdapterTest {
     @Test
     @DisplayName("distanceKm으로 정렬하면 복싱 기록도 포함되고 null은 마지막으로 온다")
     void sortByDistanceKmIncludesBoxingWorkoutsWithNullsLast() {
-        // given
+
         RunningWorkout running10km = RunningWorkout.create(
                 owner, 60, "메모", LocalDateTime.now().minusDays(1), 10.0, "한강", 500);
         RunningWorkout running5km = RunningWorkout.create(
@@ -63,12 +63,12 @@ class JpaWorkoutRepositoryAdapterTest {
         adapter.save(running5km);
         adapter.save(boxing);
 
-        // when
+
         Page<Workout> result = adapter.search(
                 owner.getId(), null, null, null,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "distanceKm")));
 
-        // then
+
         List<Workout> content = result.getContent();
         assertThat(content).hasSize(3);
         assertThat(content.get(0)).isEqualTo(running5km);
@@ -79,7 +79,7 @@ class JpaWorkoutRepositoryAdapterTest {
     @Test
     @DisplayName("distanceKm 정렬 시 count 쿼리도 정상적으로 전체 개수를 반환한다")
     void countQueryReturnsCorrectTotalWhenSortingByDistanceKm() {
-        // given
+
         adapter.save(RunningWorkout.create(
                 owner, 60, "메모", LocalDateTime.now(), 10.0, "한강", 500));
         adapter.save(RunningWorkout.create(
@@ -87,12 +87,11 @@ class JpaWorkoutRepositoryAdapterTest {
         adapter.save(BoxingWorkout.create(
                 owner, 45, "메모", LocalDateTime.now(), 3, "파트너", TechniqueType.SPARRING));
 
-        // when
+
         Page<Workout> result = adapter.search(
                 owner.getId(), null, null, null,
                 PageRequest.of(0, 2, Sort.by(Sort.Direction.ASC, "distanceKm")));
 
-        // then
         assertThat(result.getTotalElements()).isEqualTo(3);
         assertThat(result.getTotalPages()).isEqualTo(2);
         assertThat(result.getContent()).hasSize(2);

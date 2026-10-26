@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.controller;
 
 import com.kdongdexample.norunnolifeexample.dto.NicknameAvailabilityResponse;
@@ -18,6 +19,17 @@ public class NicknameController {
         this.nicknameService = nicknameService;
     }
 
+    // 현재 로그인한 사용자의 닉네임 조회
+    @GetMapping("/me/nickname")
+    public ResponseEntity<NicknameResponse> getMyNickname(
+            @AuthenticationPrincipal Long userId
+    ) {
+        String nickname = nicknameService.getNickname(userId);
+
+        return ResponseEntity.ok(new NicknameResponse(nickname));
+    }
+
+    // 닉네임 중복 확인
     @GetMapping("/nicknames/availability")
     public ResponseEntity<NicknameAvailabilityResponse> checkNicknameAvailability(
             @RequestParam String nickname
@@ -27,6 +39,7 @@ public class NicknameController {
         );
     }
 
+    // 닉네임 등록 및 변경
     @PutMapping("/me/nickname")
     public ResponseEntity<Void> changeNickname(
             @Valid @RequestBody NicknameUpdateRequest request,
@@ -35,5 +48,8 @@ public class NicknameController {
         nicknameService.changeNickname(userId, request.nickname());
 
         return ResponseEntity.ok().build();
+    }
+
+    public record NicknameResponse(String nickname) {
     }
 }

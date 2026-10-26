@@ -1,11 +1,16 @@
+
 package com.kdongdexample.norunnolifeexample.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kdongdexample.norunnolifeexample.config.SecurityConfig;
+import com.kdongdexample.norunnolifeexample.domain.ExperienceLevel;
+import com.kdongdexample.norunnolifeexample.domain.Gender;
+import com.kdongdexample.norunnolifeexample.domain.WorkoutType;
 import com.kdongdexample.norunnolifeexample.dto.AuthTokens;
 import com.kdongdexample.norunnolifeexample.dto.GoogleLoginRequest;
 import com.kdongdexample.norunnolifeexample.dto.LoginRequest;
 import com.kdongdexample.norunnolifeexample.dto.SignupRequest;
+import com.kdongdexample.norunnolifeexample.dto.UserProfileRequest;
 import com.kdongdexample.norunnolifeexample.exception.EmailAlreadyExistsException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidCredentialsException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidGoogleTokenException;
@@ -22,6 +27,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -51,7 +58,22 @@ class AuthControllerTest {
     void signup_returns201_whenRequestIsValid() throws Exception {
         mockMvc.perform(post("/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new SignupRequest("test@test.com", "password1234"))))
+                        .content(objectMapper.writeValueAsString(
+                                new SignupRequest(
+                                        "test@test.com",
+                                        "password1234",
+                                        "테스트유저",
+                                        new UserProfileRequest(
+                                                Gender.MAN,
+                                                28,
+                                                175.0,
+                                                70.0,
+                                                ExperienceLevel.INTERMEDIATE,
+                                                Set.of(WorkoutType.RUNNING),
+                                                "10km 완주"
+                                        )
+                                )
+                        )))
                 .andExpect(status().isCreated());
     }
 
@@ -62,7 +84,22 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new SignupRequest("test@test.com", "password1234"))))
+                        .content(objectMapper.writeValueAsString(
+                                new SignupRequest(
+                                        "test@test.com",
+                                        "password1234",
+                                        "테스트유저",
+                                        new UserProfileRequest(
+                                                Gender.MAN,
+                                                28,
+                                                175.0,
+                                                70.0,
+                                                ExperienceLevel.INTERMEDIATE,
+                                                Set.of(WorkoutType.RUNNING),
+                                                "10km 완주"
+                                        )
+                                )
+                        )))
                 .andExpect(status().isConflict());
     }
 

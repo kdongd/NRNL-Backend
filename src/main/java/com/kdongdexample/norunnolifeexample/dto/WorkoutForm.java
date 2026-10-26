@@ -19,7 +19,7 @@ public record WorkoutForm(
         Integer durationMinutes,
 
         @Schema(description = "메모", example = "가볍게 조깅함")
-        @Size(max = 255)
+        @Size(max = 255, message = "메모는 255자까지 입력할 수 있습니다")
         String memo,
 
         @Schema(description = "운동 일시", example = "2026-08-10T07:00:00")
@@ -35,6 +35,7 @@ public record WorkoutForm(
         @Positive
         Double distanceKm,
         @Schema(description = "러닝 장소, 러닝 타입 전용", example = "한강공원")
+        @Size(max = 255, message = "장소는 255자까지 입력할 수 있습니다")
         String place,
         @Schema(description = "소모 칼로리, 러닝 타입 전용", example = "350")
         @Min(1)
@@ -45,6 +46,7 @@ public record WorkoutForm(
         @Min(1)
         Integer rounds,
         @Schema(description = "스파링 상대, 복싱 타입 전용", example = "김철수")
+        @Size(max = 255, message = "스파링 상대는 255자까지 입력할 수 있습니다")
         String sparringPartner,
         @Schema(description = "기술 타입, 복싱 타입 전용", example = "SPARRING")
         TechniqueType techniqueType

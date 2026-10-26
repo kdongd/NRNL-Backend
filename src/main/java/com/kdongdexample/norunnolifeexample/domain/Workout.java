@@ -33,6 +33,9 @@ public abstract class Workout {
 
     private Integer durationMinutes;
     private String memo;
+
+
+    @Column(nullable = false)
     private LocalDateTime workoutDateTime;
 
     @OneToMany(mappedBy = "workout", cascade = CascadeType.ALL, orphanRemoval = true)

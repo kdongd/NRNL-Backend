@@ -25,7 +25,6 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	runtimeOnly 'com.h2database:h2'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	compileOnly 'org.projectlombok:lombok'
@@ -35,16 +34,23 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
-	runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// Flyway 10+ 부터 DB별 모듈이 분리됨 -> postgresql 모듈이 없으면 "Unsupported Database" 에러
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 
 	// 구글 ID 토큰 검증용 (GoogleIdTokenVerifier)
 	implementation 'com.google.api-client:google-api-client:2.9.0'
 
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:junit-jupiter'
-	testImplementation 'org.testcontainers:mysql'
+	testImplementation 'org.testcontainers:postgresql'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 운영(Dockerfile ENTRYPOINT)과 같은 서비스 타임존(Asia/Seoul)으로 테스트 JVM을 맞춘다.
+	// 이게 없으면 로컬(맥: Asia/Seoul)과 CI(GitHub Actions: UTC)에서 테스트 기준 시각이 달라진다.
+	jvmArgs '-Duser.timezone=Asia/Seoul'
 }
