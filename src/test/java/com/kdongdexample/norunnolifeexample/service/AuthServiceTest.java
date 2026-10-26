@@ -1,13 +1,18 @@
+
 package com.kdongdexample.norunnolifeexample.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.kdongdexample.norunnolifeexample.domain.AuthProvider;
+import com.kdongdexample.norunnolifeexample.domain.ExperienceLevel;
+import com.kdongdexample.norunnolifeexample.domain.Gender;
 import com.kdongdexample.norunnolifeexample.domain.RefreshToken;
 import com.kdongdexample.norunnolifeexample.domain.User;
+import com.kdongdexample.norunnolifeexample.domain.WorkoutType;
 import com.kdongdexample.norunnolifeexample.dto.AuthTokens;
 import com.kdongdexample.norunnolifeexample.dto.GoogleLoginRequest;
 import com.kdongdexample.norunnolifeexample.dto.LoginRequest;
 import com.kdongdexample.norunnolifeexample.dto.SignupRequest;
+import com.kdongdexample.norunnolifeexample.dto.UserProfileRequest;
 import com.kdongdexample.norunnolifeexample.exception.EmailAlreadyExistsException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidCredentialsException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidGoogleTokenException;
@@ -31,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -66,10 +72,31 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenProvider refreshTokenProvider;
 
+    @Mock
+    private NicknameService nicknameService;
+
+    @Mock
+    private UserProfileService userProfileService;
+
     private AuthService service() {
         return new AuthService(userRepository, passwordEncoder, jwtTokenProvider, googleIdTokenValidator,
                 transactionManager, refreshTokenRepository, refreshTokenProvider,
-                REFRESH_TOKEN_EXPIRATION_MS, MAX_REFRESH_TOKENS_PER_USER);
+                REFRESH_TOKEN_EXPIRATION_MS, MAX_REFRESH_TOKENS_PER_USER,
+                nicknameService, userProfileService);
+    }
+
+    private SignupRequest signupRequest(String email) {
+        UserProfileRequest profile = new UserProfileRequest(
+                Gender.MAN,
+                28,
+                175.0,
+                70.0,
+                ExperienceLevel.INTERMEDIATE,
+                Set.of(WorkoutType.RUNNING),
+                "10km 완주"
+        );
+
+        return new SignupRequest(email, "password1234", "테스트유저", profile);
     }
 
     private User createLocalUserWithId(Long id, String email, String encodedPassword) {
@@ -100,7 +127,7 @@ class AuthServiceTest {
         given(userRepository.existsByEmail("new@test.com")).willReturn(false);
         given(passwordEncoder.encode("password1234")).willReturn("encoded-password");
 
-        service().signup(new SignupRequest("new@test.com", "password1234"));
+        service().signup(signupRequest("new@test.com"));
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).saveAndFlush(captor.capture());
@@ -108,6 +135,10 @@ class AuthServiceTest {
         assertThat(saved.getEmail()).isEqualTo("new@test.com");
         assertThat(saved.getPassword()).isEqualTo("encoded-password");
         assertThat(saved.getProvider()).isEqualTo(AuthProvider.LOCAL);
+        assertThat(saved.getNickname()).isEqualTo("테스트유저");
+
+        verify(nicknameService).validateNickname("테스트유저");
+        verify(userProfileService).createProfile(eq(saved), any(UserProfileRequest.class));
     }
 
     @Test
@@ -115,7 +146,7 @@ class AuthServiceTest {
     void signup_emailAlreadyExists_throwsException() {
         given(userRepository.existsByEmail("dup@test.com")).willReturn(true);
 
-        assertThatThrownBy(() -> service().signup(new SignupRequest("dup@test.com", "password1234")))
+        assertThatThrownBy(() -> service().signup(signupRequest("dup@test.com")))
                 .isInstanceOf(EmailAlreadyExistsException.class);
 
         verify(userRepository, never()).save(any());

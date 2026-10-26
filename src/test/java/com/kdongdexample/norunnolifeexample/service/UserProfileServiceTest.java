@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.service;
 
 import com.kdongdexample.norunnolifeexample.domain.ExperienceLevel;
@@ -8,6 +9,7 @@ import com.kdongdexample.norunnolifeexample.domain.WorkoutType;
 import com.kdongdexample.norunnolifeexample.dto.UserProfileRequest;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.UserProfileAlreadyExistsException;
+import com.kdongdexample.norunnolifeexample.repository.CoachingCacheRepository;
 import com.kdongdexample.norunnolifeexample.repository.UserProfileRepository;
 import com.kdongdexample.norunnolifeexample.repository.UserRepository;
 import org.hibernate.exception.ConstraintViolationException;
@@ -41,8 +43,11 @@ class UserProfileServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private CoachingCacheRepository coachingCacheRepository;
+
     private UserProfileService service() {
-        return new UserProfileService(userRepository, userProfileRepository);
+        return new UserProfileService(userRepository, userProfileRepository, coachingCacheRepository);
     }
 
     private User createUserWithId(Long id) {
