@@ -117,4 +117,10 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
+
+    @ExceptionHandler(CommunityPostNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityPostNotFoundException(CommunityPostNotFoundException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 }
