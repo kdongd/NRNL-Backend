@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -25,7 +26,10 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 
-@Tag(name = "CommunityPost", description = "커뮤니티 게시글 관리 API")
+@Tag(
+        name = "CommunityPost",
+        description = "커뮤니티 게시글 관리 API"
+)
 @RestController
 @RequestMapping("/community/posts")
 public class CommunityPostController {
@@ -43,8 +47,15 @@ public class CommunityPostController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "작성 성공"),
-            @ApiResponse(responseCode = "400", description = "입력값 검증 실패",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "입력값 검증 실패",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation = ErrorResponse.class
+                            )
+                    )
+            ),
             @ApiResponse(responseCode = "401", description = "인증 실패")
     })
     @PostMapping
@@ -54,7 +65,8 @@ public class CommunityPostController {
     ) {
         CommunityPostResponse saved = service.create(request, userId);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(saved.id())
                 .toUri();
@@ -69,14 +81,24 @@ public class CommunityPostController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "400", description = "정렬 필드 오류",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "정렬 필드 오류",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation = ErrorResponse.class
+                            )
+                    )
+            )
     })
     @GetMapping
     public ResponseEntity<PageResponse<CommunityPostResponse>> getPosts(
-            @Parameter(description = "페이지, 크기, 정렬 조건")
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable
+            @ParameterObject
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
     ) {
         return ResponseEntity.ok(
                 PageResponse.from(service.findAll(pageable))
@@ -90,17 +112,25 @@ public class CommunityPostController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "검색 성공"),
-            @ApiResponse(responseCode = "400", description = "검색 조건 또는 정렬 필드 오류")
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "검색 조건 또는 정렬 필드 오류"
+            )
     })
     @GetMapping("/search")
     public ResponseEntity<PageResponse<CommunityPostResponse>> searchPosts(
             @Parameter(description = "검색 기준", example = "title")
             @RequestParam String type,
+
             @Parameter(description = "검색어", example = "러닝")
             @RequestParam String keyword,
-            @Parameter(description = "페이지, 크기, 정렬 조건")
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable
+
+            @ParameterObject
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
     ) {
         if (keyword.isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -108,13 +138,17 @@ public class CommunityPostController {
 
         if ("title".equals(type)) {
             return ResponseEntity.ok(
-                    PageResponse.from(service.searchByTitle(keyword, pageable))
+                    PageResponse.from(
+                            service.searchByTitle(keyword, pageable)
+                    )
             );
         }
 
         if ("nickname".equals(type)) {
             return ResponseEntity.ok(
-                    PageResponse.from(service.searchByNickname(keyword, pageable))
+                    PageResponse.from(
+                            service.searchByNickname(keyword, pageable)
+                    )
             );
         }
 
@@ -126,16 +160,25 @@ public class CommunityPostController {
             summary = "내 게시글 조회",
             description = "현재 로그인한 회원이 작성한 게시글을 조회한다"
     )
-    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 실패")
+    })
     @GetMapping("/me")
     public ResponseEntity<PageResponse<CommunityPostResponse>> getMyPosts(
-            @Parameter(description = "페이지, 크기, 정렬 조건")
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable,
+            @ParameterObject
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable,
+
             @AuthenticationPrincipal Long userId
     ) {
         return ResponseEntity.ok(
-                PageResponse.from(service.findByAuthor(userId, pageable))
+                PageResponse.from(
+                        service.findByAuthor(userId, pageable)
+                )
         );
     }
 
@@ -149,12 +192,18 @@ public class CommunityPostController {
     public ResponseEntity<PageResponse<CommunityPostResponse>> getUserPosts(
             @Parameter(description = "회원 ID", example = "1")
             @PathVariable Long userId,
-            @Parameter(description = "페이지, 크기, 정렬 조건")
-            @PageableDefault(size = 10, sort = "createdAt",
-                    direction = Sort.Direction.DESC) Pageable pageable
+
+            @ParameterObject
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
     ) {
         return ResponseEntity.ok(
-                PageResponse.from(service.findByAuthor(userId, pageable))
+                PageResponse.from(
+                        service.findByAuthor(userId, pageable)
+                )
         );
     }
 
@@ -165,8 +214,15 @@ public class CommunityPostController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "404", description = "게시글 없음",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "게시글 없음",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation = ErrorResponse.class
+                            )
+                    )
+            )
     })
     @GetMapping("/{id}")
     public ResponseEntity<CommunityPostResponse> getPost(
@@ -185,13 +241,18 @@ public class CommunityPostController {
             @ApiResponse(responseCode = "200", description = "수정 성공"),
             @ApiResponse(responseCode = "400", description = "입력값 검증 실패"),
             @ApiResponse(responseCode = "401", description = "인증 실패"),
-            @ApiResponse(responseCode = "404", description = "게시글 없음 또는 수정 권한 없음")
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "게시글 없음 또는 수정 권한 없음"
+            )
     })
     @PutMapping("/{id}")
     public ResponseEntity<CommunityPostResponse> updatePost(
             @Parameter(description = "게시글 ID", example = "1")
             @PathVariable Long id,
+
             @Valid @RequestBody CommunityPostUpdateRequest request,
+
             @AuthenticationPrincipal Long userId
     ) {
         return ResponseEntity.ok(
@@ -207,15 +268,20 @@ public class CommunityPostController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "삭제 성공"),
             @ApiResponse(responseCode = "401", description = "인증 실패"),
-            @ApiResponse(responseCode = "404", description = "게시글 없음 또는 삭제 권한 없음")
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "게시글 없음 또는 삭제 권한 없음"
+            )
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(
             @Parameter(description = "게시글 ID", example = "1")
             @PathVariable Long id,
+
             @AuthenticationPrincipal Long userId
     ) {
         service.delete(id, userId);
+
         return ResponseEntity.noContent().build();
     }
 }
