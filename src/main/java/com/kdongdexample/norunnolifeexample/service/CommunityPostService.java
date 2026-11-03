@@ -7,6 +7,7 @@ import com.kdongdexample.norunnolifeexample.dto.CommunityPostCreateRequest;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostResponse;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostUpdateRequest;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
+import com.kdongdexample.norunnolifeexample.exception.CommunityPostForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidSortPropertyException;
 import com.kdongdexample.norunnolifeexample.repository.CommunityPostRepository;
@@ -29,7 +30,6 @@ public class CommunityPostService {
 
     private final CommunityPostRepository postRepository;
     private final UserRepository userRepository;
-
 
     public CommunityPostService(
             CommunityPostRepository postRepository,
@@ -121,10 +121,10 @@ public class CommunityPostService {
             CommunityPostUpdateRequest request,
             Long userId
     ) {
-        // 게시글 조회
+        // 게시글 존재 여부 검증 (404)
         CommunityPost post = findPost(postId);
 
-        // 작성자 본인인지 검증
+        // 작성자 권한 검증 (403)
         validateAuthor(post, userId);
 
         // 제목 및 본문 수정
@@ -137,10 +137,10 @@ public class CommunityPostService {
     // 게시글 삭제
     @Transactional
     public void delete(Long postId, Long userId) {
-        // 게시글 조회
+        // 게시글 존재 여부 검증 (404)
         CommunityPost post = findPost(postId);
 
-        // 작성자 본인인지 검증
+        // 작성자 권한 검증 (403)
         validateAuthor(post, userId);
 
         // DB에서 게시글 삭제
@@ -155,10 +155,9 @@ public class CommunityPostService {
     }
 
     // 작성자 권한 검증
-    // 다른 회원의 게시글이면 존재하지 않는 것처럼 처리
     private void validateAuthor(CommunityPost post, Long userId) {
         if (!post.getAuthor().getId().equals(userId)) {
-            throw new CommunityPostNotFoundException(post.getId());
+            throw new CommunityPostForbiddenException();
         }
     }
 

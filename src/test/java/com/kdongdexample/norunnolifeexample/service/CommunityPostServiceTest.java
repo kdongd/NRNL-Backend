@@ -7,6 +7,7 @@ import com.kdongdexample.norunnolifeexample.dto.CommunityPostCreateRequest;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostResponse;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostUpdateRequest;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
+import com.kdongdexample.norunnolifeexample.exception.CommunityPostForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidSortPropertyException;
 import com.kdongdexample.norunnolifeexample.repository.CommunityPostRepository;
@@ -45,9 +46,7 @@ class CommunityPostServiceTest {
     private CommunityPostService service;
 
     private User author;
-
     private CommunityPost post;
-
     private Pageable pageable;
 
     @BeforeEach
@@ -242,7 +241,7 @@ class CommunityPostServiceTest {
     }
 
     @Test
-    @DisplayName("다른 회원은 게시글을 수정할 수 없다")
+    @DisplayName("다른 회원의 게시글 수정 시 권한 예외가 발생한다")
     void update_otherUser() {
         CommunityPostUpdateRequest request =
                 new CommunityPostUpdateRequest(
@@ -254,10 +253,12 @@ class CommunityPostServiceTest {
 
         assertThatThrownBy(() ->
                 service.update(10L, request, 2L)
-        ).isInstanceOf(CommunityPostNotFoundException.class);
+        ).isInstanceOf(CommunityPostForbiddenException.class);
 
         assertThat(post.getTitle()).isEqualTo("오늘 러닝 완료");
         assertThat(post.getContent()).isEqualTo("5km 달렸습니다.");
+
+        verify(postRepository, never()).save(any());
     }
 
     @Test
@@ -286,14 +287,14 @@ class CommunityPostServiceTest {
     }
 
     @Test
-    @DisplayName("다른 회원은 게시글을 삭제할 수 없다")
+    @DisplayName("다른 회원의 게시글 삭제 시 권한 예외가 발생한다")
     void delete_otherUser() {
         given(postRepository.findById(10L))
                 .willReturn(Optional.of(post));
 
         assertThatThrownBy(() ->
                 service.delete(10L, 2L)
-        ).isInstanceOf(CommunityPostNotFoundException.class);
+        ).isInstanceOf(CommunityPostForbiddenException.class);
 
         verify(postRepository, never()).delete(any());
     }

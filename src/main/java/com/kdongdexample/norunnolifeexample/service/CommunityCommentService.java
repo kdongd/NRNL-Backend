@@ -8,6 +8,7 @@ import com.kdongdexample.norunnolifeexample.dto.CommunityCommentCreateRequest;
 import com.kdongdexample.norunnolifeexample.dto.CommunityCommentResponse;
 import com.kdongdexample.norunnolifeexample.dto.CommunityCommentUpdateRequest;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
+import com.kdongdexample.norunnolifeexample.exception.CommunityCommentForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityCommentNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidSortPropertyException;
@@ -111,10 +112,10 @@ public class CommunityCommentService {
             CommunityCommentUpdateRequest request,
             Long userId
     ) {
-        // 댓글 조회 및 게시글 일치 여부 확인
+        // 댓글 존재 여부 및 게시글 소속 검증 (404)
         CommunityComment comment = findComment(postId, commentId);
 
-        // 댓글 작성자 본인인지 확인
+        // 댓글 작성자 권한 검증 (403)
         validateAuthor(comment, userId);
 
         // 댓글 내용 수정
@@ -131,10 +132,10 @@ public class CommunityCommentService {
             Long commentId,
             Long userId
     ) {
-        // 댓글 조회 및 게시글 일치 여부 확인
+        // 댓글 존재 여부 및 게시글 소속 검증 (404)
         CommunityComment comment = findComment(postId, commentId);
 
-        // 댓글 작성자 본인인지 확인
+        // 댓글 작성자 권한 검증 (403)
         validateAuthor(comment, userId);
 
         // 댓글 삭제
@@ -171,7 +172,7 @@ public class CommunityCommentService {
             Long userId
     ) {
         if (!comment.getAuthor().getId().equals(userId)) {
-            throw new CommunityCommentNotFoundException(comment.getId());
+            throw new CommunityCommentForbiddenException();
         }
     }
 

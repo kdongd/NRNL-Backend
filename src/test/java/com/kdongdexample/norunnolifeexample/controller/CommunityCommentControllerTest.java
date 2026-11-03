@@ -2,6 +2,7 @@
 package com.kdongdexample.norunnolifeexample.controller;
 
 import com.kdongdexample.norunnolifeexample.dto.CommunityCommentResponse;
+import com.kdongdexample.norunnolifeexample.exception.CommunityCommentForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityCommentNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.GlobalExceptionHandler;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
@@ -291,10 +291,10 @@ class CommunityCommentControllerTest {
     }
 
     @Test
-    @DisplayName("댓글 수정 권한이 없으면 404를 반환한다")
+    @DisplayName("다른 회원의 댓글 수정 시 403을 반환한다")
     void update_otherUser() throws Exception {
         when(service.update(eq(10L), eq(100L), any(), eq(1L)))
-                .thenThrow(new CommunityCommentNotFoundException(100L));
+                .thenThrow(new CommunityCommentForbiddenException());
 
         mockMvc.perform(put("/community/posts/10/comments/100")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -303,7 +303,12 @@ class CommunityCommentControllerTest {
                                   "content": "수정 시도"
                                 }
                                 """))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message")
+                        .value("다른 회원의 댓글은 수정하거나 삭제할 수 없습니다."));
+
+        verify(service).update(eq(10L), eq(100L), any(), eq(1L));
     }
 
     @Test
@@ -316,13 +321,18 @@ class CommunityCommentControllerTest {
     }
 
     @Test
-    @DisplayName("댓글 삭제 권한이 없으면 404를 반환한다")
+    @DisplayName("다른 회원의 댓글 삭제 시 403을 반환한다")
     void delete_otherUser() throws Exception {
-        doThrow(new CommunityCommentNotFoundException(100L))
+        doThrow(new CommunityCommentForbiddenException())
                 .when(service).delete(10L, 100L, 1L);
 
         mockMvc.perform(delete("/community/posts/10/comments/100"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message")
+                        .value("다른 회원의 댓글은 수정하거나 삭제할 수 없습니다."));
+
+        verify(service).delete(10L, 100L, 1L);
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.kdongdexample.norunnolifeexample.dto.CommunityCommentCreateRequest;
 import com.kdongdexample.norunnolifeexample.dto.CommunityCommentResponse;
 import com.kdongdexample.norunnolifeexample.dto.CommunityCommentUpdateRequest;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
+import com.kdongdexample.norunnolifeexample.exception.CommunityCommentForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityCommentNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.InvalidSortPropertyException;
@@ -264,7 +265,7 @@ class CommunityCommentServiceTest {
     }
 
     @Test
-    @DisplayName("다른 회원은 댓글을 수정할 수 없다")
+    @DisplayName("다른 회원의 댓글 수정 시 권한 예외가 발생한다")
     void update_otherUser() {
         CommunityCommentUpdateRequest request =
                 new CommunityCommentUpdateRequest("남의 댓글 수정");
@@ -274,10 +275,12 @@ class CommunityCommentServiceTest {
 
         assertThatThrownBy(() ->
                 service.update(10L, 100L, request, 2L)
-        ).isInstanceOf(CommunityCommentNotFoundException.class);
+        ).isInstanceOf(CommunityCommentForbiddenException.class);
 
         assertThat(comment.getContent())
                 .isEqualTo("수고하셨습니다!");
+
+        verify(commentRepository, never()).save(any());
     }
 
     @Test
@@ -323,14 +326,14 @@ class CommunityCommentServiceTest {
     }
 
     @Test
-    @DisplayName("다른 회원은 댓글을 삭제할 수 없다")
+    @DisplayName("다른 회원의 댓글 삭제 시 권한 예외가 발생한다")
     void delete_otherUser() {
         given(commentRepository.findById(100L))
                 .willReturn(Optional.of(comment));
 
         assertThatThrownBy(() ->
                 service.delete(10L, 100L, 2L)
-        ).isInstanceOf(CommunityCommentNotFoundException.class);
+        ).isInstanceOf(CommunityCommentForbiddenException.class);
 
         verify(commentRepository, never()).delete(any());
     }

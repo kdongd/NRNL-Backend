@@ -3,6 +3,7 @@ package com.kdongdexample.norunnolifeexample.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostResponse;
+import com.kdongdexample.norunnolifeexample.exception.CommunityPostForbiddenException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.GlobalExceptionHandler;
 import com.kdongdexample.norunnolifeexample.service.CommunityPostService;
@@ -314,6 +315,28 @@ class CommunityPostControllerTest {
     }
 
     @Test
+    @DisplayName("다른 회원의 게시글 수정 시 403을 반환한다")
+    void update_otherUser() throws Exception {
+        when(service.update(eq(10L), any(), eq(1L)))
+                .thenThrow(new CommunityPostForbiddenException());
+
+        mockMvc.perform(put("/community/posts/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "다른 회원의 수정 시도",
+                                  "content": "수정 권한 검증"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message")
+                        .value("다른 회원의 게시글은 수정하거나 삭제할 수 없습니다."));
+
+        verify(service).update(eq(10L), any(), eq(1L));
+    }
+
+    @Test
     @DisplayName("게시글 삭제 성공 시 204를 반환한다")
     void delete_success() throws Exception {
         mockMvc.perform(delete("/community/posts/10"))
@@ -323,12 +346,17 @@ class CommunityPostControllerTest {
     }
 
     @Test
-    @DisplayName("삭제 권한이 없으면 404를 반환한다")
+    @DisplayName("다른 회원의 게시글 삭제 시 403을 반환한다")
     void delete_otherUser() throws Exception {
-        doThrow(new CommunityPostNotFoundException(10L))
+        doThrow(new CommunityPostForbiddenException())
                 .when(service).delete(10L, 1L);
 
         mockMvc.perform(delete("/community/posts/10"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.message")
+                        .value("다른 회원의 게시글은 수정하거나 삭제할 수 없습니다."));
+
+        verify(service).delete(10L, 1L);
     }
 }
