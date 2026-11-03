@@ -14,4 +14,10 @@ public interface CommunityCommentRepository
             Long postId,
             Pageable pageable
     );
+
+    // 특정 회원이 작성한 댓글 목록 조회
+    Page<CommunityComment> findByAuthorId(
+            Long authorId,
+            Pageable pageable
+    );
 }
