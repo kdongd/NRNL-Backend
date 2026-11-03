@@ -90,6 +90,19 @@ public class CommunityCommentService {
                 .map(CommunityCommentResponse::from);
     }
 
+    // 내가 작성한 댓글 목록 조회
+    public Page<CommunityCommentResponse> findMyComments(
+            Long userId,
+            Pageable pageable
+    ) {
+        // 허용된 정렬 필드인지 검증
+        validateSort(pageable.getSort());
+
+        // 로그인한 회원이 작성한 댓글만 조회
+        return commentRepository.findByAuthorId(userId, pageable)
+                .map(CommunityCommentResponse::from);
+    }
+
     // 댓글 수정
     @Transactional
     public CommunityCommentResponse update(
