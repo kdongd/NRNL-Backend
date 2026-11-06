@@ -1,3 +1,4 @@
+
 package com.kdongdexample.norunnolifeexample.exception;
 
 import org.springframework.http.HttpStatus;
@@ -116,5 +117,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUserProfileNotFound(UserProfileNotFoundException e) {
         ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(CommunityPostNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityPostNotFoundException(CommunityPostNotFoundException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(CommunityCommentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityCommentNotFoundException(CommunityCommentNotFoundException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(CommunityPostForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityPostForbiddenException(CommunityPostForbiddenException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.FORBIDDEN.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(CommunityCommentForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleCommunityCommentForbiddenException(CommunityCommentForbiddenException e) {
+        ErrorResponse response = new ErrorResponse(HttpStatus.FORBIDDEN.value(), e.getMessage(), List.of());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 }
