@@ -32,14 +32,15 @@ public class CommunityPostLikeService {
     @Transactional
     public void like(Long postId, Long userId) {
 
+        // 게시글 존재 여부 사전 검증
+        validatePost(postId);
+
         // 로그인한 회원 존재 여부 검증
         validateUser(userId);
 
-        // 게시글을 잠금 상태로 조회
-        // 좋아요 등록 중 게시글이 삭제되는 문제 방지
-        validatePostWithLock(postId);
-
-        // 중복 좋아요는 DB에서 무시
+        // 중복 좋아요는 UNIQUE + ON CONFLICT로 방지
+        // 게시글이 동시에 삭제되었다면 DB의 FK 제약조건이 INSERT를 거부
+        // FK 예외는 서비스 밖으로 전파하여 트랜잭션 롤백
         likeRepository.insertLike(postId, userId);
     }
 
@@ -47,7 +48,7 @@ public class CommunityPostLikeService {
     @Transactional
     public void unlike(Long postId, Long userId) {
 
-        // 게시글 존재 여부 검증 (404)
+        // 게시글 존재 여부 검증
         validatePost(postId);
 
         // 로그인한 회원 존재 여부 검증
@@ -63,13 +64,13 @@ public class CommunityPostLikeService {
             Long userId
     ) {
 
-        // 게시글 존재 여부 검증 (404)
+        // 게시글 존재 여부 검증
         validatePost(postId);
 
         // 게시글 좋아요 수 조회
         long likeCount = likeRepository.countByPostId(postId);
 
-        // 비로그인 사용자는 좋아요 여부를 false로 반환
+        // 비로그인 사용자는 좋아요 여부 false
         boolean likedByMe = userId != null
                 && likeRepository.existsByPostIdAndUserId(
                 postId,
@@ -82,18 +83,11 @@ public class CommunityPostLikeService {
         );
     }
 
-    // 일반 게시글 존재 여부 검증
+    // 게시글 존재 여부 사전 검증
     private void validatePost(Long postId) {
         if (!postRepository.existsById(postId)) {
             throw new CommunityPostNotFoundException(postId);
         }
-    }
-
-    // 좋아요 등록 시 잠금을 이용한 게시글 존재 여부 검증
-    private void validatePostWithLock(Long postId) {
-        postRepository.findByIdWithLock(postId)
-                .orElseThrow(() ->
-                        new CommunityPostNotFoundException(postId));
     }
 
     // 로그인한 회원 존재 여부 검증
