@@ -1,6 +1,7 @@
 
 package com.kdongdexample.norunnolifeexample.service;
 
+import com.kdongdexample.norunnolifeexample.domain.CommunityPost;
 import com.kdongdexample.norunnolifeexample.dto.CommunityLikeResponse;
 import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
 import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
@@ -30,6 +33,9 @@ class CommunityPostLikeServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private CommunityPost post;
+
     private CommunityPostLikeService service;
 
     @BeforeEach
@@ -44,49 +50,55 @@ class CommunityPostLikeServiceTest {
     @Test
     @DisplayName("게시글 좋아요 등록에 성공한다")
     void like_success() {
-        given(postRepository.existsById(10L)).willReturn(true);
         given(userRepository.existsById(1L)).willReturn(true);
+        given(postRepository.findByIdWithLock(10L))
+                .willReturn(Optional.of(post));
         given(likeRepository.insertLike(10L, 1L)).willReturn(1);
 
         service.like(10L, 1L);
 
+        verify(postRepository).findByIdWithLock(10L);
         verify(likeRepository).insertLike(10L, 1L);
     }
 
     @Test
     @DisplayName("동일 게시글에 중복 좋아요 요청 시 정상 처리한다")
     void like_duplicate() {
-        given(postRepository.existsById(10L)).willReturn(true);
         given(userRepository.existsById(1L)).willReturn(true);
+        given(postRepository.findByIdWithLock(10L))
+                .willReturn(Optional.of(post));
         given(likeRepository.insertLike(10L, 1L)).willReturn(0);
 
         assertThatCode(() -> service.like(10L, 1L))
                 .doesNotThrowAnyException();
 
+        verify(postRepository).findByIdWithLock(10L);
         verify(likeRepository).insertLike(10L, 1L);
     }
 
     @Test
     @DisplayName("존재하지 않는 게시글에 좋아요를 등록할 수 없다")
     void like_postNotFound() {
-        given(postRepository.existsById(999L)).willReturn(false);
+        given(userRepository.existsById(1L)).willReturn(true);
+        given(postRepository.findByIdWithLock(999L))
+                .willReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.like(999L, 1L))
                 .isInstanceOf(CommunityPostNotFoundException.class);
 
-        verifyNoInteractions(userRepository, likeRepository);
+        verify(postRepository).findByIdWithLock(999L);
+        verifyNoInteractions(likeRepository);
     }
 
     @Test
     @DisplayName("존재하지 않는 회원은 좋아요를 등록할 수 없다")
     void like_userNotFound() {
-        given(postRepository.existsById(10L)).willReturn(true);
         given(userRepository.existsById(999L)).willReturn(false);
 
         assertThatThrownBy(() -> service.like(10L, 999L))
                 .isInstanceOf(AuthenticatedUserNotFoundException.class);
 
-        verifyNoInteractions(likeRepository);
+        verifyNoInteractions(postRepository, likeRepository);
     }
 
     @Test
