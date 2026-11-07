@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.util.List;
 
 @Tag(
         name = "CommunityPost",
@@ -118,7 +119,7 @@ public class CommunityPostController {
             )
     })
     @GetMapping("/search")
-    public ResponseEntity<PageResponse<CommunityPostResponse>> searchPosts(
+    public ResponseEntity<?> searchPosts(
             @Parameter(description = "검색 기준", example = "title")
             @RequestParam String type,
 
@@ -133,7 +134,12 @@ public class CommunityPostController {
             ) Pageable pageable
     ) {
         if (keyword.isBlank()) {
-            return ResponseEntity.badRequest().build();
+            ErrorResponse response = new ErrorResponse(
+                    400,
+                    "검색어를 입력해주세요",
+                    List.of()
+            );
+            return ResponseEntity.badRequest().body(response);
         }
 
         if ("title".equals(type)) {
@@ -152,7 +158,12 @@ public class CommunityPostController {
             );
         }
 
-        return ResponseEntity.badRequest().build();
+        ErrorResponse response = new ErrorResponse(
+                400,
+                "올바르지 않은 검색 유형입니다",
+                List.of()
+        );
+        return ResponseEntity.badRequest().body(response);
     }
 
     // 내가 작성한 게시글 조회
