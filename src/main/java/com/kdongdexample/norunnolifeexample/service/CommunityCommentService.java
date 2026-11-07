@@ -84,7 +84,9 @@ public class CommunityCommentService {
         validateSort(pageable.getSort());
 
         // 존재하는 게시글인지 검증
-        findPost(postId);
+        if (!postRepository.existsById(postId)) {
+            throw new CommunityPostNotFoundException(postId);
+        }
 
         // 게시글에 작성된 댓글만 조회
         return commentRepository.findByPostId(postId, pageable)
