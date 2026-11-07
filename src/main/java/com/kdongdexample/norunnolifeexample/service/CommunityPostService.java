@@ -6,10 +6,7 @@ import com.kdongdexample.norunnolifeexample.domain.User;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostCreateRequest;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostResponse;
 import com.kdongdexample.norunnolifeexample.dto.CommunityPostUpdateRequest;
-import com.kdongdexample.norunnolifeexample.exception.AuthenticatedUserNotFoundException;
-import com.kdongdexample.norunnolifeexample.exception.CommunityPostForbiddenException;
-import com.kdongdexample.norunnolifeexample.exception.CommunityPostNotFoundException;
-import com.kdongdexample.norunnolifeexample.exception.InvalidSortPropertyException;
+import com.kdongdexample.norunnolifeexample.exception.*;
 import com.kdongdexample.norunnolifeexample.repository.CommunityPostRepository;
 import com.kdongdexample.norunnolifeexample.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -49,6 +46,11 @@ public class CommunityPostService {
         User author = userRepository.findById(userId)
                 .orElseThrow(() ->
                         new AuthenticatedUserNotFoundException(userId));
+
+        // 닉네임을 설정하지 않은 회원은 게시글 작성 불가
+        if (author.getNickname() == null || author.getNickname().isBlank()) {
+            throw new InvalidNicknameException("게시글 작성 전 닉네임을 설정해주세요.");
+        }
 
         // 게시글 엔티티 생성
         CommunityPost post = CommunityPost.create(
