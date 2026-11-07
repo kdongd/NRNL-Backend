@@ -14,6 +14,7 @@ public record CommunityPostUpdateRequest(
 
         @Schema(description = "수정할 게시글 본문", example = "오늘 한강에서 10km 러닝을 완료했습니다.")
         @NotBlank(message = "게시글 내용은 필수입니다")
+        @Size(max = 1000, message = "게시글 본문은 최대 1,000자까지 입력할 수 있습니다")
         String content
 
 ) {
