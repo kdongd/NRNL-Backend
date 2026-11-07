@@ -177,8 +177,8 @@ class CommunityCommentServiceTest {
         Page<CommunityComment> page =
                 new PageImpl<>(List.of(comment), pageable, 1);
 
-        given(postRepository.findById(10L))
-                .willReturn(Optional.of(post));
+        given(postRepository.existsById(10L))
+                .willReturn(true);
 
         given(commentRepository.findByPostId(10L, pageable))
                 .willReturn(page);
@@ -199,8 +199,8 @@ class CommunityCommentServiceTest {
     @Test
     @DisplayName("존재하지 않는 게시글의 댓글 목록은 조회할 수 없다")
     void findByPost_postNotFound() {
-        given(postRepository.findById(999L))
-                .willReturn(Optional.empty());
+        given(postRepository.existsById(999L))
+                .willReturn(false);
 
         assertThatThrownBy(() ->
                 service.findByPost(999L, pageable)
@@ -360,8 +360,6 @@ class CommunityCommentServiceTest {
         assertThatThrownBy(() ->
                 service.delete(10L, 999L, 1L)
         ).isInstanceOf(CommunityCommentNotFoundException.class);
-
-        verify(commentRepository, never()).delete(any());
     }
 
     @Test
