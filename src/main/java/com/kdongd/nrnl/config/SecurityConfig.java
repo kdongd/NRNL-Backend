@@ -79,6 +79,13 @@ public class SecurityConfig {
                                 "/community/posts/**"
                         ).permitAll()
 
+                        // 크루 목록 및 상세 공개 조회
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/crews",
+                                "/crews/{id:[0-9]+}"
+                        ).permitAll()
+
                         // 나머지 모든 요청은 로그인 필요
                         .anyRequest().authenticated()
                 )

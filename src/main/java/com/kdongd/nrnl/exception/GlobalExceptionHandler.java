@@ -1,6 +1,7 @@
 
 package com.kdongd.nrnl.exception;
 
+import com.kdongd.nrnl.crew.exception.CrewException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,6 +13,12 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(CrewException.class)
+    public ResponseEntity<ErrorResponse> handleCrewException(CrewException e) {
+        return ResponseEntity.status(e.getStatus())
+                .body(new ErrorResponse(e.getStatus().value(), e.getMessage(), List.of()));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException e) {
